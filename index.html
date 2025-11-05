@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket Bridge Client</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        max-width: 800px;
+        margin: auto;
+        padding: 20px;
+      }
+      .control-group,
+      .message-group {
+        border: 1px solid #ccc;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+      }
+      input {
+        width: calc(100% - 10px);
+        padding: 5px;
+        margin-bottom: 10px;
+      }
+      button {
+        padding: 8px 15px;
+      }
+      #log {
+        background-color: #f4f4f4;
+        border: 1px solid #ddd;
+        height: 300px;
+        overflow-y: scroll;
+        padding: 10px;
+        white-space: pre-wrap;
+      }
+      .status {
+        font-style: italic;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>WebSocket Bridge Client</h1>
+
+    <div class="control-group">
+      <h2>Connection</h2>
+      <label for="clientId">Your Client ID:</label>
+      <input type="text" id="clientId" placeholder="e.g., web-client-1" />
+      <button id="connectBtn">Connect & Register</button>
+      <p>Status: <span id="status">Disconnected</span></p>
+    </div>
+
+    <div class="message-group">
+      <h2>Send Message</h2>
+      <label for="destinationId">Destination Client ID:</label>
+      <input
+        type="text"
+        id="destinationId"
+        placeholder="e.g., source-service"
+      />
+
+      <label for="messageText">Message:</label>
+      <input
+        type="text"
+        id="messageText"
+        placeholder="Type your message here"
+      />
+
+      <button id="sendBtn" disabled>Send</button>
+    </div>
+
+    <div class="log-group">
+      <h2>Log</h2>
+      <div id="log"></div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
