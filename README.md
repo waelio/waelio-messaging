@@ -14,26 +14,71 @@ A real-time messaging application built with Node.js, Express, and WebSockets (`
 
 ## Prerequisites
 
-- Node.js (v16 or newer) and npm.
+- Node.js (v18 or newer recommended)
 
-## Quick Start
+## Installation (as a Library)
 
-1.  **Clone and enter the project:**
+Install the package from npm into your project:
+
+```bash
+npm install @waelio/messaging
+```
+
+## Usage as a Library
+
+The primary export is the `MessagingHub` class. You can import it and attach it to your own Node.js `http.Server` instance.
+
+Here is a basic example with Express:
+
+```javascript
+import express from "express";
+import http from "http";
+import { MessagingHub } from "@waelio/messaging";
+
+const app = express();
+const server = http.createServer(app);
+
+// Attach the MessagingHub to your server
+const hub = new MessagingHub(server, {
+  // Optional: provide a MongoDB URI for persistence
+  // mongoURI: process.env.MONGO_URI
+});
+
+// Add your other Express routes and middleware
+app.get("/", (req, res) => {
+  res.send("Your Express App with a real-time hub is running!");
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});
+```
+
+---
+
+## Running the Demo Server (from this Repository)
+
+If you want to run the demo application included in this repository:
+
+1.  **Clone the repository and install dependencies:**
 
     ```bash
     git clone https://github.com/waelio/Messaging.git
     cd Messaging
+    npm install
     ```
 
-2.  **Install dependencies and run:**
-    This single command will install all necessary packages and start the server.
-    ```bash
-    npm start
-    ```
-
-That's it! The server is now running, and you only ever need to use `npm start`.
-
-By default, the server runs in a simple **in-memory mode**. It will keep a history of the last 10 messages, but they will be lost when the server restarts.
+2.  **Run the server:**
+    - **For development:** This command uses `ts-node` to run the TypeScript code directly.
+      ```bash
+      npm run dev
+      ```
+    - **For production:** First, build the JavaScript files from the TypeScript source, then start the server.
+      ```bash
+      npm run build
+      npm start
+      ```
 
 ## Accessing the Client
 

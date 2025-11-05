@@ -5,7 +5,12 @@
         "type": "git",
         "url": "https://github.com/waelio/Messaging.git"
     },
-    "main": "server.js",
+    "main": "dist/MessagingHub.js",
+    "types": "dist/MessagingHub.d.ts",
+    "files": [
+        "dist/",
+        "README.md"
+    ],
     "type": "module",
     "publishConfig": {
         "access": "public"
@@ -29,11 +34,19 @@
     },
     "devDependencies": {
         "chai": "^4.4.1",
-        "mocha": "^10.4.0"
+        "mocha": "^10.4.0",
+        "typescript": "^5.5.3",
+        "ts-node": "^10.9.2",
+        "@types/node": "^20.14.9",
+        "@types/express": "^4.17.21",
+        "@types/ws": "^8.5.10",
+        "@types/uuid": "^9.0.8"
     },
     "scripts": {
         "test": "mocha",
-        "start": "npm install && node server.js",
+        "build": "tsc",
+        "start": "node dist/server.js",
+        "dev": "ts-node src/server.ts",
         "docker:up": "docker compose up --build -d",
         "docker:down": "docker compose down"
     }

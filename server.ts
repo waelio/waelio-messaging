@@ -1,11 +1,9 @@
-// server.js
-
 import 'dotenv/config';
 import express from 'express';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { MessagingHub } from './lib/MessagingHub.js';
+import { MessagingHub } from './MessagingHub.js';
 
 // Use the PORT environment variable provided by Render, with a fallback for local development
 const PORT = process.env.PORT || 8080;
@@ -15,10 +13,10 @@ const MONGO_URI = process.env.MONGO_URI;
 const app = express();
 const server = http.createServer(app);
 
-// Serve static files from the 'public' directory
+// --- Static File Serving ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 /**
  * Initializes the MessagingHub and starts the HTTP server.
