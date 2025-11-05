@@ -102,6 +102,12 @@ wss.on('connection', (ws, req) => {
     // Immediately attach the ID and register the client
     ws.clientId = clientId;
     clients.set(clientId, ws);
+    
+    /**
+     * The ID of the room the client is currently in.
+     * @type {string|null}
+     */
+    ws.roomId = null;
 
     // Inform the client of their new ID
     ws.send(JSON.stringify({ type: 'register-success', id: clientId }));
@@ -129,6 +135,23 @@ wss.on('connection', (ws, req) => {
             // Notify all other clients that this user has disconnected
             // Also close the database connection if no clients are left (optional)
             broadcastClientList();
+
+            // If the client was in a room, notify the other participant.
+            if (ws.roomId) {
+                const otherParticipant = findOtherParticipant(ws.clientId, ws.roomId);
+                if (otherParticipant) {
+                    otherParticipant.send(JSON.stringify({ type: 'partner-left-room', roomId: ws.roomId }));
+                    otherParticipant.roomId = null; // Reset the other participant's room
+                }
+            }
+
+            // If the user was typing, notify others they stopped.
+            const stopTypingMessage = {
+                type: 'user-stopped-typing',
+                id: clientId
+            };
+            const messageString = JSON.stringify(stopTypingMessage);
+            broadcastToOthers(clientId, messageString);
         }
     });
 
@@ -181,6 +204,44 @@ function broadcastClientList() {
     }
 }
 
+/**
+ * Broadcasts a message to all clients except the sender.
+ * @param {string} senderId The ID of the client who sent the message.
+ * @param {string} messageString The stringified message to send.
+ */
+function broadcastToOthers(senderId, messageString) {
+    for (const [id, clientWs] of clients.entries()) {
+        // Don't send the message back to the sender
+        if (id !== senderId) {
+            clientWs.send(messageString);
+        }
+    }
+}
+
+/**
+ * Generates a consistent, unique room ID for two client IDs.
+ * @param {string} id1 First client ID.
+ * @param {string} id2 Second client ID.
+ * @returns {string} The generated room ID.
+ */
+function getRoomId(id1, id2) {
+    // Sort the IDs to ensure the room ID is the same regardless of who initiates.
+    return [id1, id2].sort().join('-');
+}
+
+/**
+ * Finds the other client in a given room.
+ * @param {string} ownId The ID of the client making the request.
+ * @param {string} roomId The ID of the room.
+ * @returns {import('ws')|undefined} The WebSocket object of the other participant.
+ */
+function findOtherParticipant(ownId, roomId) {
+    for (const client of clients.values()) {
+        if (client.roomId === roomId && client.clientId !== ownId) {
+            return client;
+        }
+    }
+}
 /**
  * Processes and routes messages from a client.
  * @param {import('ws')} ws The WebSocket connection object for the sender.
@@ -250,13 +311,7 @@ function handleClientMessage(ws, message) {
 
 
             console.log(`[Server] Broadcasting message from '${broadcastSenderId}'.`);
-            // Iterate over all connected clients and send the message
-            for (const [id, clientWs] of clients.entries()) {
-                // Don't send the broadcast message back to the sender
-                if (id !== broadcastSenderId) {
-                    clientWs.send(broadcastString);
-                }
-            }
+            broadcastToOthers(broadcastSenderId, broadcastString);
             break;
 
         case 'get-history':
@@ -291,6 +346,73 @@ function handleClientMessage(ws, message) {
                     console.error(`[Database] Error fetching history for '${requesterId}':`, err);
                     ws.send(JSON.stringify({ type: 'error', message: 'Failed to retrieve message history.' }));
                 });
+            break;
+
+        case 'start-typing':
+            const typingMessage = {
+                type: 'user-typing',
+                id: ws.clientId
+            };
+            const typingString = JSON.stringify(typingMessage);
+            broadcastToOthers(ws.clientId, typingString);
+            break;
+
+        case 'stop-typing':
+            const stopTypingMessage = {
+                type: 'user-stopped-typing',
+                id: ws.clientId
+            };
+            const stopTypingString = JSON.stringify(stopTypingMessage);
+            broadcastToOthers(ws.clientId, stopTypingString);
+            break;
+
+        case 'join-room':
+            const partnerId = message.with;
+            const selfId = ws.clientId;
+
+            if (!partnerId || partnerId === selfId) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Invalid partner ID provided.' }));
+                return;
+            }
+
+            const partnerWs = clients.get(partnerId);
+            if (!partnerWs) {
+                ws.send(JSON.stringify({ type: 'error', message: `User '${partnerId}' is not online.` }));
+                return;
+            }
+
+            const roomId = getRoomId(selfId, partnerId);
+
+            // Set the room ID for both participants
+            ws.roomId = roomId;
+            partnerWs.roomId = roomId;
+
+            // Notify both clients they have joined the room
+            const joinMessage = { type: 'joined-room', roomId, with: partnerId };
+            ws.send(JSON.stringify(joinMessage));
+
+            const partnerJoinMessage = { type: 'joined-room', roomId, with: selfId };
+            partnerWs.send(JSON.stringify(partnerJoinMessage));
+            
+            console.log(`[Server] Clients '${selfId}' and '${partnerId}' joined room '${roomId}'.`);
+            break;
+
+        case 'room-message':
+            if (!ws.roomId) {
+                ws.send(JSON.stringify({ type: 'error', message: 'You are not in a room.' }));
+                return;
+            }
+
+            const otherParticipant = findOtherParticipant(ws.clientId, ws.roomId);
+            if (otherParticipant) {
+                const roomMessage = {
+                    type: 'message',
+                    from: ws.clientId,
+                    payload: message.payload,
+                    isBroadcast: false
+                };
+                otherParticipant.send(JSON.stringify(roomMessage));
+            }
             break;
 
         default:
