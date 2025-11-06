@@ -1,6 +1,6 @@
 # Real-Time Messaging System
 
-[![CI](https://github.com/waelio/waelio-messaging/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/waelio/waelio-messaging/actions/workflows/ci.yml) [![npm version](https://img.shields.io/npm/v/%40waelio%2Fmessaging)](https://www.npmjs.com/package/@waelio/messaging)
+[![CI](https://github.com/waelio/waelio-messaging/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/waelio/waelio-messaging/actions/workflows/ci.yml) [![npm version](https://img.shields.io/npm/v/%40waelio%2Fmessaging)](https://www.npmjs.com/package/@waelio/messaging) [![npm downloads](https://img.shields.io/npm/dm/%40waelio%2Fmessaging)](https://www.npmjs.com/package/@waelio/messaging) [![license](https://img.shields.io/npm/l/%40waelio%2Fmessaging)](https://www.npmjs.com/package/@waelio/messaging)
 
 A real-time messaging application built with Node.js, Express, and WebSockets (`ws`). It works out-of-the-box with in-memory message storage and can be optionally connected to a MongoDB database for persistent history.
 
