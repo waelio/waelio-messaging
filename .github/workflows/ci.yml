@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # Run on pushes to any branch, and also on version tags like v1.2.3
+    tags:
+      - "v*"
   pull_request:
-    branches: [main]
+    # Run on PRs targeting any branch
+    {}
 
 jobs:
   build-and-test:
@@ -48,3 +51,28 @@ jobs:
           RUN_INTEGRATION: "true"
           MONGO_URI: mongodb://127.0.0.1:27017/messagingApp
         run: npm run test:server
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public

@@ -1,5 +1,7 @@
 # Real-Time Messaging System
 
+[![CI](https://github.com/waelio/waelio-messaging/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/waelio/waelio-messaging/actions/workflows/ci.yml)
+
 A real-time messaging application built with Node.js, Express, and WebSockets (`ws`). It works out-of-the-box with in-memory message storage and can be optionally connected to a MongoDB database for persistent history.
 
 ## Features
