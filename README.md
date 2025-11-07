@@ -82,7 +82,7 @@ If you want to run the demo application included in this repository:
       npm start
       ```
 
-<iframe src="https://waelio-messaging.onrender.com/"></iframe>
+<iframe src="https://waelio-messaging.onrender.com/" width="100%" height="800" style="border:0;"></iframe>
 
 ## Optional: Adding Database Persistence
 
