@@ -82,18 +82,6 @@ If you want to run the demo application included in this repository:
       npm start
       ```
 
-## Accessing the Client UI (Quasar)
-
-Open your browser at:
-
-```
-http://localhost:8080
-```
-
-Notes:
-
-## Live Demo
-
 <iframe src="https://waelio-messaging.onrender.com/"></iframe>
 
 ## Optional: Adding Database Persistence
