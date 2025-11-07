@@ -94,27 +94,7 @@ Notes:
 
 ## Live Demo
 
-> GitHub strips iframes in README display for security. The embed below may not render on GitHub, but will appear on platforms that permit inline frames (e.g. some internal viewers or npm). Always provide a direct link fallback.
-
-<div align="center">
-  <a href="https://waelio-messaging.onrender.com/" target="_blank" rel="noopener">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://waelio-messaging.onrender.com/favicon.svg">
-      <img alt="Messaging Hub Live Demo" src="https://waelio-messaging.onrender.com/favicon.svg" width="96" height="96" style="margin-bottom:12px;" />
-    </picture>
-  </a>
-  <p><strong><a href="https://waelio-messaging.onrender.com/" target="_blank" rel="noopener">Open Live Demo</a></strong></p>
-  <!-- Attempt inline preview (ignored by GitHub) -->
-  <iframe
-    src="https://waelio-messaging.onrender.com/"
-    title="Messaging Hub Live Demo"
-    width="100%"
-    height="640"
-    style="border:1px solid #ddd;border-radius:8px;max-width:960px;"
-    loading="lazy"
-  ></iframe>
-  <p><em>If you don't see an embedded preview, use the link above.</em></p>
-</div>
+<iframe src="https://waelio-messaging.onrender.com/"></iframe>
 
 ## Optional: Adding Database Persistence
 
