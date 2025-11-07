@@ -85,6 +85,7 @@
           const selectedUser = ref(null);
           const notifyEnabled = ref(true);
           const isDark = ref(Quasar.Dark.isActive);
+          const themeAuto = ref(false);
           // Restore persisted state (best-effort)
           try {
             const savedNotify = window.uStore?.local.get("notifyEnabled");
@@ -95,9 +96,35 @@
             const savedDraft = window.uStore?.local.get("inputDraft");
             if (typeof savedDraft === "string") input.value = savedDraft;
             const savedDark = window.uStore?.local.get("themeDark");
+            const savedAuto = window.uStore?.local.get("themeAuto");
+            if (typeof savedAuto === "boolean") themeAuto.value = savedAuto;
             if (typeof savedDark === "boolean") {
               Quasar.Dark.set(savedDark);
               isDark.value = Quasar.Dark.isActive;
+            }
+          } catch {}
+          // System theme auto-detect if no explicit preference stored
+          let mediaQuery = null;
+          let onMQChange = null;
+          try {
+            const hasSaved =
+              typeof window.uStore?.local.get("themeDark") === "boolean";
+            if (!hasSaved) {
+              themeAuto.value = true;
+            }
+            if (themeAuto.value && typeof window.matchMedia === "function") {
+              mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+              onMQChange = () => {
+                if (themeAuto.value) {
+                  Quasar.Dark.set(mediaQuery.matches);
+                  isDark.value = Quasar.Dark.isActive;
+                }
+              };
+              onMQChange();
+              if (mediaQuery.addEventListener)
+                mediaQuery.addEventListener("change", onMQChange);
+              else if (mediaQuery.addListener)
+                mediaQuery.addListener(onMQChange);
             }
           } catch {}
           const reconnecting = ref(false);
@@ -364,6 +391,37 @@
               Quasar.Dark.set(v);
               window.uStore?.local.set("themeDark", v);
             });
+            watch(themeAuto, (v) => {
+              window.uStore?.local.set("themeAuto", v);
+              if (v) {
+                // Re-enable media query listener
+                if (!mediaQuery && typeof window.matchMedia === "function") {
+                  mediaQuery = window.matchMedia(
+                    "(prefers-color-scheme: dark)"
+                  );
+                }
+                if (mediaQuery) {
+                  if (!onMQChange) {
+                    onMQChange = () => {
+                      if (themeAuto.value) {
+                        Quasar.Dark.set(mediaQuery.matches);
+                        isDark.value = Quasar.Dark.isActive;
+                      }
+                    };
+                  }
+                  onMQChange();
+                  if (mediaQuery.addEventListener)
+                    mediaQuery.addEventListener("change", onMQChange);
+                  else if (mediaQuery.addListener)
+                    mediaQuery.addListener(onMQChange);
+                }
+              } else if (mediaQuery && onMQChange) {
+                if (mediaQuery.removeEventListener)
+                  mediaQuery.removeEventListener("change", onMQChange);
+                else if (mediaQuery.removeListener)
+                  mediaQuery.removeListener(onMQChange);
+              }
+            });
           } catch {}
           return {
             connected,
@@ -389,8 +447,10 @@
             colorFor,
             isDark,
             toggleDark: () => {
+              themeAuto.value = false; // manual override disables auto
               isDark.value = !isDark.value;
             },
+            themeAuto,
           };
         },
         template: `<q-layout view="hHh lpR fFf">
@@ -410,6 +470,12 @@
                         <q-toggle v-model="notifyEnabled" :label="notifyEnabled ? 'On' : 'Off'" left-label />
                       </q-item-section>
                     </q-item>
+                     <q-item>
+                       <q-item-section>Auto theme</q-item-section>
+                       <q-item-section side>
+                         <q-toggle v-model="themeAuto" :label="themeAuto ? 'System' : 'Manual'" left-label />
+                       </q-item-section>
+                     </q-item>
                   </q-list>
                 </q-menu>
               </q-btn>
