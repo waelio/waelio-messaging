@@ -21,9 +21,9 @@ npm start         # run compiled server
 ## Library Usage
 
 ```ts
-import http from 'http';
-import express from 'express';
-import { MessagingHub } from '@waelio/messaging';
+import http from "http";
+import express from "express";
+import { MessagingHub } from "@waelio/messaging";
 
 const app = express();
 const server = http.createServer(app);
@@ -31,24 +31,29 @@ const server = http.createServer(app);
 // Optional: { mongoURI: 'mongodb+srv://...' }
 const hub = new MessagingHub(server);
 
-server.listen(8080, () => console.log('ready'));
+server.listen(8080, () => console.log("ready"));
 ```
 
 ## Web Component
 
 Auto-send on connect:
+
 ```html
 <waelio-message target="USER_ID" message="hello"></waelio-message>
 ```
+
 Broadcast:
+
 ```html
 <waelio-message message="hello everyone" broadcast></waelio-message>
 ```
+
 Manual:
+
 ```html
 <waelio-message id="msg" send-on="manual" target="USER_ID"></waelio-message>
 <script>
-	msg.addEventListener('connected', () => msg.send('hi again'));
+  msg.addEventListener("connected", () => msg.send("hi again"));
 </script>
 ```
 
@@ -58,6 +63,7 @@ Events: connected, disconnected, sent, error.
 ## Protocol (Summary)
 
 Client → Server:
+
 - `route` { to, payload }
 - `broadcast` { payload }
 - `get-history` {}
@@ -65,6 +71,7 @@ Client → Server:
 - room: `join-room` { with }, `room-message` { payload }
 
 Server → Client:
+
 - `register-success` { id }
 - `user-list` { users[] }
 - `message` { from, payload, isBroadcast? }
@@ -77,6 +84,7 @@ Server → Client:
 - `error` { message }
 
 ## Persistence (Optional)
+
 Provide `mongoURI` to keep more than in-memory history & survive restarts.
 
 ```ts
@@ -84,7 +92,9 @@ new MessagingHub(server, { mongoURI: process.env.MONGO_URI });
 ```
 
 ## Release Scripts
+
 Patch / Minor / Major then publish:
+
 ```bash
 npm run release:patch && npm run release:publish
 npm run release:minor && npm run release:publish
@@ -92,4 +102,5 @@ npm run release:major && npm run release:publish
 ```
 
 ## License
+
 MIT
