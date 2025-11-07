@@ -44,7 +44,7 @@
       window.uStore = uStore;
     </script>
     <script>
-      const { ref, computed, onMounted, watch } = Vue;
+  const { ref, computed, onMounted, watch } = Vue;
       const WS_URL =
         (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
       const app = Vue.createApp({
@@ -56,18 +56,27 @@
           const messages = ref([]);
           const input = ref("");
           const typingUsers = ref(new Set());
+          // Deterministic per-user color palette (avoid reserved UI semantic colors except primary for self & accent for broadcast)
+          const userPalette = ['indigo','teal','deep-orange','purple','cyan','pink','green','blue-grey','brown'];
+          function colorFor(id){
+            if(!id) return 'grey';
+            let hash = 0;
+            for(let i=0;i<id.length;i++){ hash = ((hash * 31) + id.charCodeAt(i)) >>> 0; }
+            return userPalette[ hash % userPalette.length ];
+          }
           const roomId = ref(null);
           const roomPartner = ref(null);
           const selectedUser = ref(null);
           const notifyEnabled = ref(true);
           // Restore persisted state (best-effort)
           try {
-            const savedNotify = window.uStore?.local.get('notifyEnabled');
-            if (typeof savedNotify === 'boolean') notifyEnabled.value = savedNotify;
-            const savedSelected = window.uStore?.local.get('selectedUser');
+            const savedNotify = window.uStore?.local.get("notifyEnabled");
+            if (typeof savedNotify === "boolean")
+              notifyEnabled.value = savedNotify;
+            const savedSelected = window.uStore?.local.get("selectedUser");
             if (savedSelected) selectedUser.value = savedSelected;
-            const savedDraft = window.uStore?.local.get('inputDraft');
-            if (typeof savedDraft === 'string') input.value = savedDraft;
+            const savedDraft = window.uStore?.local.get("inputDraft");
+            if (typeof savedDraft === "string") input.value = savedDraft;
           } catch {}
           const reconnecting = ref(false);
           const retryAttempt = ref(0);
@@ -320,9 +329,15 @@
           onMounted(connect);
           // Persist small UI state changes
           try {
-            watch(notifyEnabled, v => window.uStore?.local.set('notifyEnabled', !!v));
-            watch(selectedUser, v => window.uStore?.local.set('selectedUser', v || ''));
-            watch(input, v => window.uStore?.local.set('inputDraft', v || ''));
+            watch(notifyEnabled, (v) =>
+              window.uStore?.local.set("notifyEnabled", !!v)
+            );
+            watch(selectedUser, (v) =>
+              window.uStore?.local.set("selectedUser", v || "")
+            );
+            watch(input, (v) =>
+              window.uStore?.local.set("inputDraft", v || "")
+            );
           } catch {}
           return {
             connected,
@@ -345,6 +360,7 @@
             nextRetryIn,
             retryNow,
             notifyEnabled,
+            colorFor,
           };
         },
         template: `<q-layout view="hHh lpR fFf">
@@ -383,6 +399,9 @@
                   <q-card-section class="q-pb-xs"><div class="text-caption text-grey">Users Online</div></q-card-section>
                   <q-list dense bordered separator style="max-height:40vh;overflow:auto;">
                     <q-item v-for="u in users" :key="u" clickable @click="u!==clientId && chooseUser(u)" :active="selectedUser===u" :disable="u===clientId" active-class="bg-primary text-white">
+                      <q-item-section avatar style="min-width:28px;">
+                        <q-badge :color="u===clientId ? 'primary' : colorFor(u)" rounded style="width:14px;height:14px;padding:0;" />
+                      </q-item-section>
                       <q-item-section>
                         {{ u.substring(0,8) }}<span v-if="u===clientId" class="text-primary text-caption"> (you)</span>
                       </q-item-section>
@@ -407,7 +426,7 @@
                 <q-card flat bordered class="column full-height">
                   <q-card-section class="col scroll" style="overflow:auto;display:flex;flex-direction:column;gap:8px;">
                     <div v-for="m in messages" :key="m.ts.getTime()+m.payload" class="message-item" :class="{ me:m.me, broadcast:m.isBroadcast }">
-                      <q-chat-message :sent="m.me" :text="[m.payload]" :bg-color="m.isBroadcast ? 'accent' : (m.me ? 'primary' : 'grey-9')" :text-color="m.me || m.isBroadcast ? 'white' : 'white'" :stamp="m.ts.toLocaleTimeString()" />
+                      <q-chat-message :sent="m.me" :text="[m.payload]" :bg-color="m.isBroadcast ? 'accent' : (m.me ? 'primary' : colorFor(m.from))" text-color="white" :stamp="m.ts.toLocaleTimeString()" />
                     </div>
                   </q-card-section>
                   <q-separator />
