@@ -57,6 +57,20 @@
       const { ref, computed, onMounted, watch } = Vue;
       const WS_URL =
         (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
+      // PWA install prompt handling
+      let deferredInstallPrompt = null;
+      const canInstallRef = ref(false);
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        canInstallRef.value = true;
+        console.log("[PWA] beforeinstallprompt captured");
+      });
+      window.addEventListener("appinstalled", () => {
+        console.log("[PWA] App installed");
+        deferredInstallPrompt = null;
+        canInstallRef.value = false;
+      });
       const app = Vue.createApp({
         setup() {
           const connected = ref(false);
@@ -483,6 +497,19 @@
             themeAuto,
             themeButtonLabel,
             themeButtonIcon,
+            canInstall: canInstallRef,
+            triggerInstall: async () => {
+              if (!deferredInstallPrompt) return;
+              try {
+                deferredInstallPrompt.prompt();
+                const choice = await deferredInstallPrompt.userChoice;
+                console.log("[PWA] userChoice", choice.outcome);
+              } catch (e) {
+                console.warn("[PWA] install prompt failed", e);
+              }
+              deferredInstallPrompt = null;
+              canInstallRef.value = false;
+            },
           };
         },
         template: `<q-layout view="hHh lpR fFf">
@@ -492,6 +519,7 @@
               <q-btn dense flat icon="history" @click="loadHistory" label="History" />
               <q-btn dense flat icon="campaign" @click="sendMessage(true)" label="Broadcast" />
               <q-btn dense flat :icon="themeButtonIcon" @click="toggleDark" :label="themeButtonLabel" />
+              <q-btn v-if="canInstall" dense flat icon="download" @click="triggerInstall" label="Install" />
               <q-space />
               <q-btn dense flat round icon="settings">
                 <q-menu anchor="bottom right" self="top right">

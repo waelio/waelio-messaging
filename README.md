@@ -24,8 +24,16 @@ The bundled UI under `public/` is a Progressive Web App:
 
 - Installable on desktop and mobile (manifest + service worker)
 - Basic offline support (core assets cached, navigation fallback)
+- “Install” button appears when eligible (uses `beforeinstallprompt`)
 
-Try it on the Live Demo or locally after `npm run build && npm start`.
+Try it on the Live Demo or locally after:
+
+```bash
+npm run build
+npm start
+```
+
+If your browser doesn’t show the install prompt automatically, use the “Install” button in the top bar (it’s only visible when installable per browser policy).
 
 ## Library Usage
 
