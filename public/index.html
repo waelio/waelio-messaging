@@ -40,11 +40,11 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/quasar@2.18.5/dist/quasar.umd.prod.js"></script>
     <script type="module">
-      import { uStore } from 'https://esm.sh/@waelio/ustore@1.0.8';
+      import { uStore } from "https://esm.sh/@waelio/ustore@1.0.8";
       window.uStore = uStore;
     </script>
     <script>
-      const { ref, computed, onMounted } = Vue;
+      const { ref, computed, onMounted, watch } = Vue;
       const WS_URL =
         (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
       const app = Vue.createApp({
@@ -60,9 +60,14 @@
           const roomPartner = ref(null);
           const selectedUser = ref(null);
           const notifyEnabled = ref(true);
+          // Restore persisted state (best-effort)
           try {
             const savedNotify = window.uStore?.local.get('notifyEnabled');
             if (typeof savedNotify === 'boolean') notifyEnabled.value = savedNotify;
+            const savedSelected = window.uStore?.local.get('selectedUser');
+            if (savedSelected) selectedUser.value = savedSelected;
+            const savedDraft = window.uStore?.local.get('inputDraft');
+            if (typeof savedDraft === 'string') input.value = savedDraft;
           } catch {}
           const reconnecting = ref(false);
           const retryAttempt = ref(0);
@@ -135,7 +140,9 @@
               switch (msg.type) {
                 case "register-success":
                   clientId.value = msg.id;
-                  try { window.uStore?.local.set('clientId', msg.id); } catch {}
+                  try {
+                    window.uStore?.local.set("clientId", msg.id);
+                  } catch {}
                   notify({
                     color: "positive",
                     message: "Registered",
@@ -311,7 +318,13 @@
             );
           });
           onMounted(connect);
-            return {
+          // Persist small UI state changes
+          try {
+            watch(notifyEnabled, v => window.uStore?.local.set('notifyEnabled', !!v));
+            watch(selectedUser, v => window.uStore?.local.set('selectedUser', v || ''));
+            watch(input, v => window.uStore?.local.set('inputDraft', v || ''));
+          } catch {}
+          return {
             connected,
             clientId,
             users,
@@ -417,7 +430,7 @@
       app.mount("#q-app");
       // Persist notification preference
       try {
-        const appVm = document.getElementById('q-app');
+        const appVm = document.getElementById("q-app");
       } catch {}
     </script>
   </body>
