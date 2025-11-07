@@ -556,11 +556,9 @@
                   <q-card-section class="q-pb-xs"><div class="text-caption text-grey">Users Online</div></q-card-section>
                   <q-list dense bordered separator style="max-height:40vh;overflow:auto;">
                     <q-item v-for="u in users" :key="u" clickable @click="u!==clientId && chooseUser(u)" :active="selectedUser===u" :disable="u===clientId" active-class="bg-primary text-white">
-                      <q-item-section avatar style="min-width:28px;">
-                        <q-badge :color="u===clientId ? 'primary' : colorFor(u)" rounded style="width:14px;height:14px;padding:0;" />
-                      </q-item-section>
                       <q-item-section>
-                        {{ u.substring(0,8) }}<span v-if="u===clientId" class="text-primary text-caption"> (you)</span>
+                        <span :class="u===clientId ? 'text-primary' : ('text-' + colorFor(u))">{{ u.substring(0,8) }}</span>
+                        <span v-if="u===clientId" class="text-primary text-caption"> (you)</span>
                       </q-item-section>
                     </q-item>
                     <q-item v-if="!users.length"><q-item-section class="text-grey">No users</q-item-section></q-item>
@@ -569,8 +567,8 @@
                   <q-card-section>
                     <div class="text-caption">Room</div>
                     <div v-if="roomId" class="q-mt-xs">
-                      <q-badge color="primary" class="q-mr-sm">{{ roomId }}</q-badge>
-                      <q-badge color="secondary">with {{ roomPartner?.substring(0,8) }}</q-badge>
+                      <span class="text-primary q-mr-sm">{{ roomId }}</span>
+                      <span class="text-secondary">with {{ roomPartner?.substring(0,8) }}</span>
                     </div>
                     <div class="q-mt-sm flex">
                       <q-btn size="sm" color="primary" :disable="!selectedUser" label="Start" @click="startRoom" class="q-mr-xs" />
@@ -597,7 +595,7 @@
                       <q-btn color="primary" label="Send" @click="sendMessage(false)" :disable="!input.trim()" />
                       <q-btn flat color="accent" label="Broadcast" @click="sendMessage(true)" :disable="!input.trim()" />
                       <q-btn flat color="secondary" label="History" @click="loadHistory" />
-                      <q-badge v-if="typingLabel" color="warning" class="q-ml-auto">{{ typingLabel }}</q-badge>
+                      <span v-if="typingLabel" class="text-warning q-ml-auto">{{ typingLabel }}</span>
                     </div>
                   </q-card-section>
                 </q-card>
