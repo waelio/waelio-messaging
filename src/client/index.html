@@ -134,14 +134,17 @@
                   });
                   break;
                 case "user-list":
-                  users.value = msg.users.filter((u) => u !== clientId.value);
+                  users.value = msg.users;
+                  const othersCount = msg.users.filter(
+                    (u) => u !== clientId.value
+                  ).length;
                   notify({
                     color: "info",
                     message: "User list updated",
                     caption:
-                      users.value.length +
+                      othersCount +
                       " other" +
-                      (users.value.length === 1 ? " user" : " users"),
+                      (othersCount === 1 ? " user" : " users"),
                   });
                   break;
                 case "message":
@@ -298,11 +301,15 @@
               (arr.length === 1 ? arr[0] : arr.length + " users") + " typing…"
             );
           });
+          const otherUsers = Vue.computed(() =>
+            users.value.filter((u) => u !== clientId.value)
+          );
           onMounted(connect);
           return {
             connected,
             clientId,
             users,
+            otherUsers,
             messages,
             input,
             typingLabel,
@@ -356,12 +363,18 @@
               <div class="column col-auto q-pa-sm" style="width:260px;max-width:100%;">
                 <q-card flat bordered class="full-height">
                   <q-card-section class="q-pb-xs"><div class="text-caption text-grey">Users Online</div></q-card-section>
+                  <q-card-section v-if="clientId" class="q-pt-xs q-pb-xs">
+                    <div class="text-caption">You</div>
+                    <q-chip color="positive" text-color="white" size="sm" class="q-mt-xs">
+                      {{ clientId.substring(0,8) }}
+                    </q-chip>
+                  </q-card-section>
                   <q-separator />
                   <q-list dense bordered separator style="max-height:40vh;overflow:auto;">
-                    <q-item v-for="u in users" :key="u" clickable @click="chooseUser(u)" :active="selectedUser===u" active-class="bg-primary text-white">
+                    <q-item v-for="u in otherUsers" :key="u" clickable @click="chooseUser(u)" :active="selectedUser===u" active-class="bg-primary text-white">
                       <q-item-section>{{ u.substring(0,8) }}</q-item-section>
                     </q-item>
-                    <q-item v-if="!users.length"><q-item-section class="text-grey">No other users</q-item-section></q-item>
+                    <q-item v-if="!otherUsers.length"><q-item-section class="text-grey">No other users</q-item-section></q-item>
                   </q-list>
                   <q-separator />
                   <q-card-section>
