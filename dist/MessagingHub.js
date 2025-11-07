@@ -21,7 +21,8 @@ export class MessagingHub {
             throw new Error('An HTTP server instance is required.');
         }
         this.mongoURI = options.mongoURI;
-        this.mongoClient = this.mongoURI ? new MongoClient(this.mongoURI) : null;
+        // Defer MongoClient construction to _setupPersistence so invalid URIs don't crash the app
+        this.mongoClient = null;
         this.messagesCollection = null;
         this.wss = new WebSocketServer({ server: httpServer });
         this.ready = this._initialize();
@@ -32,15 +33,16 @@ export class MessagingHub {
         console.log('[MessagingHub] WebSocket server is attached and running.');
     }
     async _setupPersistence() {
-        if (this.mongoClient) {
+        if (this.mongoURI) {
             try {
+                this.mongoClient = new MongoClient(this.mongoURI);
                 await this.mongoClient.connect();
                 console.log('[Database] Connected successfully to MongoDB.');
                 const db = this.mongoClient.db(DB_NAME);
                 this.messagesCollection = db.collection('messages');
             }
             catch (err) {
-                console.error('[Database] ERROR: Could not connect to MongoDB. Falling back to in-memory store.');
+                console.error('[Database] ERROR: Could not initialize MongoDB client or connect. Falling back to in-memory store.');
                 console.error(err);
                 this._setupInMemoryStore();
             }
