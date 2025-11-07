@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Messaging Hub UI</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" href="/favicon.ico" />
     <link
       href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons"
       rel="stylesheet"
@@ -56,19 +56,44 @@
           const roomPartner = ref(null);
           const selectedUser = ref(null);
           let typingTimeout = null;
+          function notify(opts) {
+            try {
+              Quasar.Notify.create(
+                Object.assign({ position: "top-right", timeout: 2500 }, opts)
+              );
+            } catch (e) {}
+          }
           function connect() {
             socket.value = new WebSocket(WS_URL);
             socket.value.onopen = () => {
               connected.value = true;
+              notify({
+                type: "positive",
+                message: "Connected",
+                caption: clientId.value ? clientId.value.substring(0, 8) : "",
+              });
             };
             socket.value.onmessage = (ev) => {
               const msg = JSON.parse(ev.data);
               switch (msg.type) {
                 case "register-success":
                   clientId.value = msg.id;
+                  notify({
+                    type: "positive",
+                    message: "Registered",
+                    caption: msg.id.substring(0, 8),
+                  });
                   break;
                 case "user-list":
                   users.value = msg.users.filter((u) => u !== clientId.value);
+                  notify({
+                    type: "info",
+                    message: "User list updated",
+                    caption:
+                      users.value.length +
+                      " other" +
+                      (users.value.length === 1 ? " user" : " users"),
+                  });
                   break;
                 case "message":
                   messages.value.push({
@@ -76,6 +101,16 @@
                     ts: new Date(),
                     me: msg.from === clientId.value,
                   });
+                  if (msg.from !== clientId.value) {
+                    notify({
+                      type: msg.isBroadcast ? "accent" : "info",
+                      message: msg.isBroadcast ? "Broadcast" : "Message",
+                      caption:
+                        (msg.from || "").substring(0, 8) +
+                        ": " +
+                        String(msg.payload).slice(0, 28),
+                    });
+                  }
                   break;
                 case "message-history":
                   msg.history.forEach((h) =>
@@ -87,6 +122,11 @@
                       me: h.senderId === clientId.value,
                     })
                   );
+                  notify({
+                    type: "info",
+                    message: "History loaded",
+                    caption: msg.history.length + " messages",
+                  });
                   break;
                 case "user-typing":
                   typingUsers.value.add(msg.id);
@@ -97,16 +137,40 @@
                 case "joined-room":
                   roomId.value = msg.roomId;
                   roomPartner.value = msg.with;
+                  notify({
+                    type: "positive",
+                    message: "Room joined",
+                    caption: (msg.with || "").substring(0, 8),
+                  });
                   break;
                 case "partner-left-room":
                   roomId.value = null;
                   roomPartner.value = null;
+                  notify({
+                    type: "warning",
+                    message: "Room closed",
+                    caption: "Partner left",
+                  });
+                  break;
+                case "error":
+                  notify({
+                    type: "negative",
+                    message: "Error",
+                    caption: msg.message || "Unknown",
+                  });
                   break;
               }
             };
             socket.value.onclose = () => {
               connected.value = false;
+              notify({
+                type: "negative",
+                message: "Disconnected",
+                caption: "Socket closed",
+              });
             };
+            socket.value.onerror = () =>
+              notify({ type: "warning", message: "Socket error" });
           }
           function sendMessage(broadcast = false) {
             const text = input.value.trim();
@@ -149,16 +213,23 @@
           }
           function loadHistory() {
             socket.value?.send(JSON.stringify({ type: "get-history" }));
+            notify({ type: "info", message: "Requesting history..." });
           }
           function startRoom() {
             if (!selectedUser.value) return;
             socket.value?.send(
               JSON.stringify({ type: "join-room", with: selectedUser.value })
             );
+            notify({
+              type: "info",
+              message: "Joining room",
+              caption: selectedUser.value.substring(0, 8),
+            });
           }
           function leaveRoom() {
             roomId.value = null;
             roomPartner.value = null;
+            notify({ type: "warning", message: "Left room" });
           }
           function handleTyping() {
             socket.value?.send(JSON.stringify({ type: "start-typing" }));
