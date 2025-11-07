@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Messaging Hub UI</title>
+    <link rel="icon" href="/favicon.ico" />
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/quasar@2.18.5/dist/quasar.prod.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <style>
+      html,
+      body,
+      #q-app {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+      }
+      .message-item.me {
+        align-self: flex-end;
+      }
+      .message-item.other {
+        align-self: flex-start;
+      }
+      .message-item.broadcast {
+        align-self: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="q-app"></div>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quasar@2.18.5/dist/quasar.umd.prod.js"></script>
+    <script>
+      const { ref, computed, onMounted } = Vue;
+      const WS_URL =
+        (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
+      const app = Vue.createApp({
+        setup() {
+          const connected = ref(false);
+          const socket = ref(null);
+          const clientId = ref("");
+          const users = ref([]);
+          const messages = ref([]);
+          const input = ref("");
+          const typingUsers = ref(new Set());
+          const roomId = ref(null);
+          const roomPartner = ref(null);
+          const selectedUser = ref(null);
+          const notifyEnabled = ref(true);
+          const reconnecting = ref(false);
+          const retryAttempt = ref(0);
+          const nextRetryIn = ref(0);
+          let typingTimeout = null;
+          let reconnectTimer = null;
+          let countdownTimer = null;
+          function notify(opts) {
+            if (!notifyEnabled.value) return;
+            try {
+              Quasar.Notify.create(
+                Object.assign({ position: "top-right", timeout: 2500 }, opts)
+              );
+            } catch (e) {}
+          }
+          function clearReconnectTimers() {
+            if (reconnectTimer) {
+              clearTimeout(reconnectTimer);
+              reconnectTimer = null;
+            }
+            if (countdownTimer) {
+              clearInterval(countdownTimer);
+              countdownTimer = null;
+            }
+          }
+          function scheduleReconnect() {
+            if (reconnectTimer) return; // already scheduled
+            reconnecting.value = true;
+            const delays = [1000, 2000, 5000, 10000, 20000, 30000];
+            const idx = Math.min(retryAttempt.value, delays.length - 1);
+            const delay = delays[idx];
+            nextRetryIn.value = Math.ceil(delay / 1000);
+            clearReconnectTimers();
+            countdownTimer = setInterval(() => {
+              if (nextRetryIn.value > 0) nextRetryIn.value -= 1;
+            }, 1000);
+            reconnectTimer = setTimeout(() => {
+              reconnectTimer = null;
+              connect();
+            }, delay);
+            retryAttempt.value += 1;
+          }
+          function retryNow() {
+            clearReconnectTimers();
+            connect();
+          }
+          function connect() {
+            socket.value = new WebSocket(WS_URL);
+            socket.value.onopen = () => {
+              connected.value = true;
+              reconnecting.value = false;
+              clearReconnectTimers();
+              if (retryAttempt.value > 0) {
+                notify({
+                  color: "positive",
+                  message: "Reconnected",
+                  caption: clientId.value ? clientId.value.substring(0, 8) : "",
+                });
+              } else {
+                notify({
+                  color: "positive",
+                  message: "Connected",
+                  caption: clientId.value ? clientId.value.substring(0, 8) : "",
+                });
+              }
+              retryAttempt.value = 0;
+            };
+            socket.value.onmessage = (ev) => {
+              const msg = JSON.parse(ev.data);
+              switch (msg.type) {
+                case "register-success":
+                  clientId.value = msg.id;
+                  notify({
+                    color: "positive",
+                    message: "Registered",
+                    caption: msg.id.substring(0, 8),
+                  });
+                  break;
+                case "user-list":
+                  users.value = msg.users.filter((u) => u !== clientId.value);
+                  notify({
+                    color: "info",
+                    message: "User list updated",
+                    caption:
+                      users.value.length +
+                      " other" +
+                      (users.value.length === 1 ? " user" : " users"),
+                  });
+                  break;
+                case "message":
+                  messages.value.push({
+                    ...msg,
+                    ts: new Date(),
+                    me: msg.from === clientId.value,
+                  });
+                  if (msg.from !== clientId.value) {
+                    notify({
+                      color: msg.isBroadcast ? "accent" : "info",
+                      message: msg.isBroadcast ? "Broadcast" : "Message",
+                      caption:
+                        (msg.from || "").substring(0, 8) +
+                        ": " +
+                        String(msg.payload).slice(0, 28),
+                    });
+                  }
+                  break;
+                case "message-history":
+                  msg.history.forEach((h) =>
+                    messages.value.push({
+                      from: h.senderId,
+                      payload: h.payload,
+                      isBroadcast: h.isBroadcast,
+                      ts: new Date(h.timestamp),
+                      me: h.senderId === clientId.value,
+                    })
+                  );
+                  notify({
+                    color: "info",
+                    message: "History loaded",
+                    caption: msg.history.length + " messages",
+                  });
+                  break;
+                case "user-typing":
+                  typingUsers.value.add(msg.id);
+                  break;
+                case "user-stopped-typing":
+                  typingUsers.value.delete(msg.id);
+                  break;
+                case "joined-room":
+                  roomId.value = msg.roomId;
+                  roomPartner.value = msg.with;
+                  notify({
+                    color: "positive",
+                    message: "Room joined",
+                    caption: (msg.with || "").substring(0, 8),
+                  });
+                  break;
+                case "partner-left-room":
+                  roomId.value = null;
+                  roomPartner.value = null;
+                  notify({
+                    color: "warning",
+                    message: "Room closed",
+                    caption: "Partner left",
+                  });
+                  break;
+                case "error":
+                  notify({
+                    color: "negative",
+                    message: "Error",
+                    caption: msg.message || "Unknown",
+                  });
+                  break;
+              }
+            };
+            socket.value.onclose = () => {
+              connected.value = false;
+              notify({
+                color: "negative",
+                message: "Disconnected",
+                caption: "Socket closed",
+              });
+              scheduleReconnect();
+            };
+            socket.value.onerror = () =>
+              notify({ color: "warning", message: "Socket error" });
+          }
+          function sendMessage(broadcast = false) {
+            const text = input.value.trim();
+            if (!text) return;
+            if (broadcast) {
+              socket.value?.send(
+                JSON.stringify({ type: "broadcast", payload: text })
+              );
+            } else if (roomId.value && roomPartner.value) {
+              socket.value?.send(
+                JSON.stringify({ type: "room-message", payload: text })
+              );
+              messages.value.push({
+                type: "message",
+                from: clientId.value,
+                payload: text,
+                ts: new Date(),
+                me: true,
+              });
+            } else {
+              const dest = selectedUser.value;
+              if (dest) {
+                socket.value?.send(
+                  JSON.stringify({ type: "route", to: dest, payload: text })
+                );
+                messages.value.push({
+                  type: "message",
+                  from: clientId.value,
+                  payload: text,
+                  ts: new Date(),
+                  me: true,
+                });
+              }
+            }
+            input.value = "";
+            socket.value?.send(JSON.stringify({ type: "stop-typing" }));
+          }
+          function chooseUser(u) {
+            selectedUser.value = u;
+          }
+          function loadHistory() {
+            socket.value?.send(JSON.stringify({ type: "get-history" }));
+            notify({ color: "info", message: "Requesting history..." });
+          }
+          function startRoom() {
+            if (!selectedUser.value) return;
+            socket.value?.send(
+              JSON.stringify({ type: "join-room", with: selectedUser.value })
+            );
+            notify({
+              color: "info",
+              message: "Joining room",
+              caption: selectedUser.value.substring(0, 8),
+            });
+          }
+          function leaveRoom() {
+            roomId.value = null;
+            roomPartner.value = null;
+            notify({ color: "warning", message: "Left room" });
+          }
+          function handleTyping() {
+            socket.value?.send(JSON.stringify({ type: "start-typing" }));
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(
+              () => socket.value?.send(JSON.stringify({ type: "stop-typing" })),
+              1200
+            );
+          }
+          const typingLabel = computed(() => {
+            const arr = Array.from(typingUsers.value).filter(
+              (id) => id !== clientId.value
+            );
+            if (!arr.length) return "";
+            return (
+              (arr.length === 1 ? arr[0] : arr.length + " users") + " typing…"
+            );
+          });
+          onMounted(connect);
+          return {
+            connected,
+            clientId,
+            users,
+            messages,
+            input,
+            typingLabel,
+            sendMessage,
+            chooseUser,
+            selectedUser,
+            loadHistory,
+            startRoom,
+            leaveRoom,
+            handleTyping,
+            roomId,
+            roomPartner,
+            reconnecting,
+            retryAttempt,
+            nextRetryIn,
+            retryNow,
+            notifyEnabled,
+          };
+        },
+        template: `<q-layout view="hHh lpR fFf">
+          <q-header elevated class="bg-primary text-white">
+            <q-toolbar>
+              <q-toolbar-title>Messaging Hub <span v-if=\"clientId\">- {{ clientId.substring(0,8) }}</span></q-toolbar-title>
+              <q-btn dense flat icon="history" @click="loadHistory" label="History" />
+              <q-btn dense flat icon="campaign" @click="sendMessage(true)" label="Broadcast" />
+              <q-space />
+              <q-btn dense flat round icon="settings">
+                <q-menu anchor="bottom right" self="top right">
+                  <q-list dense style="min-width:220px;">
+                    <q-item>
+                      <q-item-section>Enable notifications</q-item-section>
+                      <q-item-section side>
+                        <q-toggle v-model="notifyEnabled" :label="notifyEnabled ? 'On' : 'Off'" left-label />
+                      </q-item-section>
+                    </q-item>
+                  </q-list>
+                </q-menu>
+              </q-btn>
+            </q-toolbar>
+            <div class="q-pa-sm q-pt-none">
+              <q-banner v-if="reconnecting" dense class="bg-warning text-dark">
+                Reconnecting in {{ nextRetryIn }}s… (attempt {{ retryAttempt }})
+                <template v-slot:action>
+                  <q-btn flat color="dark" label="Retry now" @click="retryNow" />
+                </template>
+              </q-banner>
+            </div>
+          </q-header>
+          <q-page-container>
+            <q-page class="row no-wrap">
+              <div class="column col-auto q-pa-sm" style="width:260px;max-width:100%;">
+                <q-card flat bordered class="full-height">
+                  <q-card-section class="q-pb-xs"><div class="text-caption text-grey">Users Online</div></q-card-section>
+                  <q-separator />
+                  <q-list dense bordered separator style="max-height:40vh;overflow:auto;">
+                    <q-item v-for="u in users" :key="u" clickable @click="chooseUser(u)" :active="selectedUser===u" active-class="bg-primary text-white">
+                      <q-item-section>{{ u.substring(0,8) }}</q-item-section>
+                    </q-item>
+                    <q-item v-if="!users.length"><q-item-section class="text-grey">No other users</q-item-section></q-item>
+                  </q-list>
+                  <q-separator />
+                  <q-card-section>
+                    <div class="text-caption">Room</div>
+                    <div v-if="roomId" class="q-mt-xs">
+                      <q-badge color="primary" class="q-mr-sm">{{ roomId }}</q-badge>
+                      <q-badge color="secondary">with {{ roomPartner?.substring(0,8) }}</q-badge>
+                    </div>
+                    <div class="q-mt-sm flex">
+                      <q-btn size="sm" color="primary" :disable="!selectedUser" label="Start" @click="startRoom" class="q-mr-xs" />
+                      <q-btn size="sm" flat color="negative" :disable="!roomId" label="Leave" @click="leaveRoom" />
+                    </div>
+                  </q-card-section>
+                </q-card>
+              </div>
+              <div class="column col q-pa-sm">
+                <q-card flat bordered class="column full-height">
+                  <q-card-section class="col scroll" style="overflow:auto;display:flex;flex-direction:column;gap:8px;">
+                    <div v-for="m in messages" :key="m.ts.getTime()+m.payload" class="message-item" :class="{ me:m.me, broadcast:m.isBroadcast }">
+                      <q-chat-message :sent="m.me" :text="[m.payload]" :bg-color="m.isBroadcast ? 'accent' : (m.me ? 'primary' : 'grey-9')" :text-color="m.me || m.isBroadcast ? 'white' : 'white'" :stamp="m.ts.toLocaleTimeString()" />
+                    </div>
+                  </q-card-section>
+                  <q-separator />
+                  <q-card-section>
+                    <q-input dense outlined v-model="input" placeholder="Type a message" @keyup="handleTyping" @keyup.enter="sendMessage(false)" />
+                    <div class="row items-center q-gutter-sm q-mt-sm">
+                      <q-btn color="primary" label="Send" @click="sendMessage(false)" :disable="!input.trim()" />
+                      <q-btn flat color="accent" label="Broadcast" @click="sendMessage(true)" :disable="!input.trim()" />
+                      <q-btn flat color="secondary" label="History" @click="loadHistory" />
+                      <q-badge v-if="typingLabel" color="warning" class="q-ml-auto">{{ typingLabel }}</q-badge>
+                    </div>
+                  </q-card-section>
+                </q-card>
+              </div>
+            </q-page>
+          </q-page-container>
+        </q-layout>`,
+      });
+      app.use(Quasar);
+      app.mount("#q-app");
+    </script>
+  </body>
+</html>
