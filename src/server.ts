@@ -13,6 +13,9 @@ const MONGO_URI = process.env.MONGO_URI;
 const app = express();
 const server = http.createServer(app);
 
+// Parse JSON bodies for API endpoints
+app.use(express.json());
+
 // --- Static File Serving ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,6 +29,26 @@ async function startServer() {
     // and any configuration options it needs.
     const hub = new MessagingHub(server, { mongoURI: MONGO_URI });
     await hub.ready;
+
+    // Lightweight HTTP API to send messages via POST
+    app.post('/api/route', async (req, res) => {
+        const { to, payload, from } = req.body || {};
+        if (!to || typeof payload === 'undefined') {
+            return res.status(400).json({ ok: false, error: 'Missing "to" or "payload"' });
+        }
+        const ok = await hub.sendToClient(String(to), payload, from ? String(from) : 'api');
+        if (!ok) return res.status(404).json({ ok: false, error: 'Recipient not connected' });
+        return res.json({ ok: true });
+    });
+
+    app.post('/api/broadcast', async (req, res) => {
+        const { payload, from, exclude } = req.body || {};
+        if (typeof payload === 'undefined') {
+            return res.status(400).json({ ok: false, error: 'Missing "payload"' });
+        }
+        await hub.broadcast(payload, from ? String(from) : 'api', exclude ? String(exclude) : undefined);
+        return res.json({ ok: true });
+    });
 
     // Start the HTTP server
     server.listen(PORT, () => {

@@ -293,4 +293,32 @@ export class MessagingHub {
                 ws.send(JSON.stringify({ type: 'error', message: `Unknown message type: '${message.type}'.` }));
         }
     }
+
+    /**
+     * Send a direct message to a connected client by ID.
+     * Returns true if delivered, false if client not found.
+     */
+    async sendToClient(recipientId: string, payload: any, from: string = 'api'): Promise<boolean> {
+        const destinationWs = this.clients.get(recipientId);
+        if (!destinationWs) return false;
+
+        const outboundMessage = { type: 'message', from, payload };
+        const dbMessage: Message = { senderId: from, recipientId, payload, isBroadcast: false, timestamp: new Date() };
+        this.messagesCollection?.insertOne(dbMessage).catch((err: any) => console.error('[Database] Error saving routed message:', err));
+        destinationWs.send(JSON.stringify(outboundMessage));
+        return true;
+    }
+
+    /**
+     * Broadcast a message to all clients except optional senderId.
+     */
+    async broadcast(payload: any, from: string = 'api', excludeId?: string): Promise<void> {
+        const broadcastMessage = { type: 'message', from, payload, isBroadcast: true };
+        const dbBroadcastMessage: Message = { senderId: from, payload, isBroadcast: true, timestamp: new Date() };
+        this.messagesCollection?.insertOne(dbBroadcastMessage).catch((err: any) => console.error('[Database] Error saving broadcast message:', err));
+        for (const [id, clientWs] of this.clients.entries()) {
+            if (excludeId && id === excludeId) continue;
+            clientWs.send(JSON.stringify(broadcastMessage));
+        }
+    }
 }
