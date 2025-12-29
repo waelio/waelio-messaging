@@ -202,6 +202,25 @@
             clearReconnectTimers();
             connect();
           }
+          async function copyId() {
+            if (!clientId.value) return;
+            try {
+              if (navigator?.clipboard?.writeText) {
+                await navigator.clipboard.writeText(clientId.value);
+              } else {
+                const t = document.createElement("textarea");
+                t.value = clientId.value;
+                document.body.appendChild(t);
+                t.select();
+                document.execCommand("copy");
+                document.body.removeChild(t);
+              }
+              notify({ color: "positive", message: "ID copied" });
+            } catch (e) {
+              console.warn("[copy] failed", e);
+              notify({ color: "negative", message: "Copy failed" });
+            }
+          }
           function connect() {
             socket.value = new WebSocket(WS_URL);
             socket.value.onopen = () => {
@@ -487,6 +506,7 @@
             retryAttempt,
             nextRetryIn,
             retryNow,
+            copyId,
             notifyEnabled,
             colorFor,
             isDark,
@@ -553,6 +573,15 @@
             <q-page class="row no-wrap">
               <div class="column col-auto q-pa-sm" style="width:260px;max-width:100%;">
                 <q-card flat bordered class="full-height">
+                  <q-card-section class="q-pb-xs">
+                    <div class="text-caption text-grey">Your ID</div>
+                    <q-input dense filled readonly :model-value="clientId" placeholder="Not registered yet" class="q-mt-xs">
+                      <template v-slot:append>
+                        <q-btn dense flat icon="content_copy" @click="copyId" :disable="!clientId" />
+                      </template>
+                    </q-input>
+                  </q-card-section>
+                  <q-separator />
                   <q-card-section class="q-pb-xs"><div class="text-caption text-grey">Users Online</div></q-card-section>
                   <q-list dense bordered separator style="max-height:40vh;overflow:auto;">
                     <q-item v-for="u in users" :key="u" clickable @click="u!==clientId && chooseUser(u)" :active="selectedUser===u" :disable="u===clientId" active-class="bg-primary text-white">
