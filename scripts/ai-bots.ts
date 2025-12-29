@@ -81,7 +81,7 @@ function tryStart() {
     if (!ready()) return;
     started = true;
     console.log('[bots] Both registered. Starting.');
-    sendRoute(botA, 'Hello from Bot-A');
+    sendRoute(botA, 'Greetings from Bot-A (kickoff)');
 }
 
 function sendRoute(bot: Bot, payload: string) {
