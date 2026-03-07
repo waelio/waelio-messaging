@@ -136,7 +136,6 @@
 				DEVELOPMENT_TEAM = 5CY5WTPYKZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NFCReaderUsageDescription = "We need NFC to share and join negotiation sessions by tapping phones together";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -170,7 +169,6 @@
 				DEVELOPMENT_TEAM = 5CY5WTPYKZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NFCReaderUsageDescription = "We need NFC to share and join negotiation sessions by tapping phones together";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
