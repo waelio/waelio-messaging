@@ -22,6 +22,7 @@ Perfect for: couples therapy, family discussions, workplace conflicts, mediation
 - ✅ **Session Logging**: Complete session history with export capability
 - ✅ **Session Ratings**: Rate negotiation quality and respectfulness after completion
 - ✅ **Multiple Sharing Options**: AirDrop, QR codes, NFC, or manual codes
+- ✅ **Share App**: Invite others to download via built-in share button
 - ✅ **Modification Requests**: Request and approve session changes
   - Extend turn duration
   - Add extra turns
@@ -172,7 +173,24 @@ Creating and Joining Sessions
 2. **Participant**: Tap "Join Conversation" → Enter code manually
 3. Session starts when participant joins
 
-### 
+### Inviting Others to Download the App
+
+Want to help someone get started with Welcom?
+
+1. Tap the **share button** (↑) in the top-right corner of the home screen
+2. Choose how to share:
+   - **AirDrop** - Send directly to nearby devices
+   - **Messages** - Text the app info
+   - **Mail** - Email the download link
+   - **Copy** - Get the link to share anywhere
+
+The share message includes:
+- What Welcom does
+- Why it's useful for difficult conversations
+- GitHub download link
+
+Perfect for therapists, mediators, or anyone who wants to help others communicate better!
+
 ### Starting a Demo Session
 
 1. Launch the app

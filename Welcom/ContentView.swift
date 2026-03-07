@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var showingCreateSession = false
     @State private var showingJoinSession = false
     @State private var showingDemoSession = false
+    @State private var showingShareApp = false
     @StateObject private var demoViewModel = SessionViewModel()
     
     var body: some View {
@@ -92,6 +93,13 @@ struct ContentView: View {
                 .padding(.bottom, 20)
             }
             .navigationTitle("Welcom")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showingShareApp = true }) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+            }
             .sheet(isPresented: $showingCreateSession) {
                 CreateSessionView()
             }
@@ -102,6 +110,11 @@ struct ContentView: View {
                 NavigationStack {
                     SessionView(sessionViewModel: demoViewModel)
                 }
+            }
+            .sheet(isPresented: $showingShareApp) {
+                ShareSheet(items: [
+                    "Try Welcom - Safe Communication for Difficult Conversations\n\nWelcom helps people have respectful conversations by enforcing turn-based speaking. One person talks at a time, preventing interruptions and promoting understanding.\n\nPerfect for: couples therapy, family discussions, workplace conflicts, or any conversation that needs structure.\n\nDownload: https://github.com/waelio/welcom"
+                ])
             }
         }
     }

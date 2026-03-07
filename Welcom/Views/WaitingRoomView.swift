@@ -131,7 +131,14 @@ struct WaitingRoomView: View {
         .sheet(isPresented: $showingShareSheet) {
             if let code = sessionViewModel.session?.sessionCode {
                 ShareSheet(items: [
-                    "Join my Welcom conversation with code: \(code)\n\nEnter this code in the Welcom app to join our safe, turn-based conversation."
+                    """
+                    Join my Welcom conversation with code: \(code)
+                    
+                    Enter this code in the Welcom app to join our safe, turn-based conversation.
+                    
+                    Don't have the app? Get it here:
+                    https://github.com/waelio/welcom
+                    """
                 ])
             }
         }
