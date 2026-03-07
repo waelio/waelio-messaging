@@ -91,7 +91,11 @@ struct JoinSessionView: View {
                 
                 Section("How to Join") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("• Scan QR code from other person's screen (fastest)")
+                        Text("• Receive code via AirDrop and paste here (easiest)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("• Or scan QR code from other person's screen")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         

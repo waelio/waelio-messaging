@@ -47,7 +47,7 @@ struct WaitingRoomView: View {
                 Button(action: { showingShareSheet = true }) {
                     HStack {
                         Image(systemName: "square.and.arrow.up")
-                        Text("Share Code")
+                        Text("Share via AirDrop")
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -87,7 +87,7 @@ struct WaitingRoomView: View {
                     .font(.headline)
                     .foregroundColor(.secondary)
                 
-                Text("Share the QR code or session code above")
+                Text("AirDrop the code, share QR, or send the session code")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -131,7 +131,7 @@ struct WaitingRoomView: View {
         .sheet(isPresented: $showingShareSheet) {
             if let code = sessionViewModel.session?.sessionCode {
                 ShareSheet(items: [
-                    "Join my conversation with code: \(code)\n\nDownload Welcom for safe, respectful communication."
+                    "Join my Welcom conversation with code: \(code)\n\nEnter this code in the Welcom app to join our safe, turn-based conversation."
                 ])
             }
         }

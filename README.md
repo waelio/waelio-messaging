@@ -21,8 +21,7 @@ Perfect for: couples therapy, family discussions, workplace conflicts, mediation
 - ✅ **Private Notes**: Take notes during opponent's turn
 - ✅ **Session Logging**: Complete session history with export capability
 - ✅ **Session Ratings**: Rate negotiation quality and respectfulness after completion
-- ✅ **QR Code Joining**: Scan QR codes to instantly join sessions
-- ✅ **NFC Session Sharing**: Tap phones together to share/join sessions instantly
+- ✅ **Multiple Sharing Options**: AirDrop, QR codes, NFC, or manual codes
 - ✅ **Modification Requests**: Request and approve session changes
   - Extend turn duration
   - Add extra turns
@@ -57,6 +56,8 @@ Welcom/
 │   ├── QRCodeScanner.swift           # QR code scanning (camera)
 │   ├── WebSocketService.swift        # Real-time messaging client
 │   └── SessionMessagingService.swift # Session sync via WebSocket
+├── Utils/
+│   └── ShareSheet.swift              # AirDrop & share menu
 └── WelcomApp.swift                  # App entry point
 ```
 
@@ -124,10 +125,12 @@ The app has three integration levels:
    - Mock data, single device testing
    - "Simulate Join" button for testing UI
 
-2. **QR Code Mode (Production-Ready)**:
-   - Two physical devices can connect via QR scanning
-   - Manual code entry fallback
-   - No backend required
+2. **Peer-to-Peer Mode (Production-Ready, No Backend Required)**:
+   - ✅ **AirDrop**: Share code instantly between nearby devices
+   - ✅ **QR Code**: Scan to join, works at any distance
+   - ✅ **Manual Code**: Fallback 6-character code entry
+   - ✅ **NFC**: Tap phones together (iPhone 7+)
+   - Works completely offline, no server needed
 
 3. **WebSocket Mode (Full Real-Time)**:
    - Use `waelio-messaging` backend for live sync
@@ -148,20 +151,25 @@ The app has three integration levels:
 ## Usage
 Creating and Joining Sessions
 
-**Option 1: Using QR Code (Recommended)**
-1. **Host**: Tap "Create Session" → Session shows QR code in waiting room
-2. **Participant**: Tap "Join Session" → Tap "Scan QR Code" → Point camera at host's screen
+**Option 1: Using AirDrop (Recommended)**
+1. **Host**: Tap "Start Conversation" → Tap "Share via AirDrop"
+2. **Participant**: Accept AirDrop → Code appears in message → Copy and paste into join screen
 3. Session automatically starts when both users are connected
 
-**Option 2: Using NFC**
-1. **Host**: Tap "Create Session" → Fill details → Tap "Share via NFC"  
-2. **Participant**: Tap "Join Session" → Tap "Scan with NFC"  
+**Option 2: Using QR Code**
+1. **Host**: Tap "Start Conversation" → Session shows QR code in waiting room
+2. **Participant**: Tap "Join Conversation" → Tap "Scan QR Code" → Point camera at host's screen
+3. Session automatically starts when both users are connected
+
+**Option 3: Using NFC**
+1. **Host**: Tap "Start Conversation" → Fill details → Tap "Share via NFC"  
+2. **Participant**: Tap "Join Conversation" → Tap "Scan with NFC"  
 3. Hold phones back-to-back until code transfers  
 4. Session automatically starts when both users are connected
 
-**Option 3: Using Session Code**
-1. **Host**: Tap "Create Session" → Share the 6-character code
-2. **Participant**: Tap "Join Session" → Enter code manually
+**Option 4: Using Session Code**
+1. **Host**: Tap "Start Conversation" → Share the 6-character code
+2. **Participant**: Tap "Join Conversation" → Enter code manually
 3. Session starts when participant joins
 
 ### 
