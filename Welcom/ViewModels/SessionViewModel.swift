@@ -20,6 +20,11 @@ class SessionViewModel: ObservableObject {
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
     
+    // MARK: - WebSocket Integration (Optional)
+    // Uncomment to enable real-time sync with waelio-messaging backend
+    // private var webSocketService: WebSocketService?
+    // private var sessionMessaging: SessionMessagingService?
+    
     var isMyTurn: Bool {
         guard let session = session, let myParty = myParty else { return false }
         return session.currentTurn == myParty
@@ -239,8 +244,28 @@ class SessionViewModel: ObservableObject {
         updateMuteStatus()
     }
     
-    // MARK: - Session Management (for real implementation with Firebase)
+    // MARK: - Session Management (for real implementation with WebSocket)
     
+    /// Demo function: Simulates another participant joining
+    /// Replace with real WebSocket implementation:
+    ///
+    /// func enableWebSocketSync() {
+    ///     guard let session = session else { return }
+    ///     webSocketService = WebSocketService(userId: currentUserId, userName: userName)
+    ///     sessionMessaging = SessionMessagingService(
+    ///         webSocket: webSocketService!,
+    ///         sessionCode: session.sessionCode
+    ///     )
+    ///     webSocketService?.connect()
+    ///     sessionMessaging?.announceSession(userId: currentUserId, userName: userName)
+    ///     
+    ///     // Listen for participant joining
+    ///     sessionMessaging?.$participantJoined
+    ///         .sink { [weak self] joined in
+    ///             if joined { self?.handleParticipantJoined() }
+    ///         }
+    ///         .store(in: &cancellables)
+    /// }
     func simulateParticipantJoin() {
         guard var session = session, session.status == .waiting else { return }
         

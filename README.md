@@ -52,22 +52,27 @@ Welcom/
 │   ├── WaitingRoomView.swift   # Pre-session waiting area
 │   └── SessionRatingView.swift # Post-session feedback
 ├── Services/
-│   ├── NFCSessionManager.swift # NFC reading/writing
-│   ├── QRCodeGenerator.swift   # QR code generation
-│   └── QRCodeScanner.swift     # QR code scanning (camera)
-└── WelcomApp.swift            # App entry point
+│   ├── NFCSessionManager.swift       # NFC reading/writing
+│   ├── QRCodeGenerator.swift         # QR code generation
+│   ├── QRCodeScanner.swift           # QR code scanning (camera)
+│   ├── WebSocketService.swift        # Real-time messaging client
+│   └── SessionMessagingService.swift # Session sync via WebSocket
+└── WelcomApp.swift                  # App entry point
 ```
 
-## Getting S
-- iPhone 7 or later (for NFC functionality)tarted
+## Getting Started
 
 ### Prerequisites
 
 - Xcode 14.0+
 - iOS 15.0+
 - Swift 5.0+
+- iPhone 7 or later (for NFC functionality)
+- Node.js 18+ (for real-time messaging - optional)
 
 ### Installation
+
+#### Option 1: Demo Mode (Single Device)
 
 1. Clone the repository:
 ```bash
@@ -80,23 +85,65 @@ cd welcom
 open Welcom.xcodeproj
 ```
 
-3. Build and run (⌘R)
+3. Build and run (⌘R) - Uses demo button for simulation
+
+#### Option 2: Real-Time Mode (Two Devices)
+
+For real device-to-device communication using QR codes or session codes:
+
+1. Follow steps 1-2 from Option 1
+2. Build to two physical devices
+3. Create session on device A, join from device B
+4. Currently works with QR code scanning or manual code entry
+
+#### Option 3: Backend Integration (Real-Time Sync)
+
+For full real-time synchronization with WebSocket messaging:
+
+1. **Start the messaging server** (in a separate terminal):
+```bash
+cd /Users/waelio/Code/waelio-messaging
+npm install
+npm run dev
+# Server runs on http://localhost:8080
+```
+
+2. **Configure the iOS app** to connect to the server:
+   - In `WebSocketService.swift`, server URL is already set to `ws://localhost:8080`
+   - For physical devices, change to your Mac's local IP: `ws://192.168.1.x:8080`
+
+3. **Build and run** on two devices - they'll communicate via WebSocket
+
+**Note**: Option 3 requires both devices to be on the same network as your Mac running the messaging server.
 
 ### Configuration
 
-The app currently runs with mock data for demonstration. To integrate with backend services:
+The app has three integration levels:
 
-1. **Firebase Integration** (Optional):
-   - Add `GoogleService-Info.plist`
-   - Configure Firebase in `WelcomApp.swift`
+1. **Demo Mode (Current)**:
+   - Mock data, single device testing
+   - "Simulate Join" button for testing UI
 
-2. **WebRTC/Agora** (Optional):
-   - Add audio framework dependencies
-   - Configure in `SessionViewModel.swift`
+2. **QR Code Mode (Production-Ready)**:
+   - Two physical devices can connect via QR scanning
+   - Manual code entry fallback
+   - No backend required
 
-3. **Bundle Identifier**:
-   - Current: `com.waelio.Welcom`
-   - Update in Xcode project settings if needed
+3. **WebSocket Mode (Full Real-Time)**:
+   - Use `waelio-messaging` backend for live sync
+   - Real-time turn management
+   - User presence detection
+   - Requires messaging server running
+
+**To enable WebSocket sync**:
+- Uncomment WebSocket integration in `SessionViewModel.swift`
+- Set server URL in `WebSocketService.swift`
+- Start messaging server: `cd /Users/waelio/Code/waelio-messaging && npm run dev`
+
+**Audio Integration** (Future):
+- Add WebRTC or Agora SDK
+- Implement in `SessionViewModel.swift`
+- Hook into existing mute/unmute logic
 
 ## Usage
 Creating and Joining Sessions
@@ -141,10 +188,37 @@ Creating and Joining Sessions
 
 ### Turn Management
 
+## Project Status
+
+- ✅ Core UI Implementation
+- ✅ Session Management
+- ✅ Timer & Turn Logic
+- ✅ Notes & Logging
+- ✅ Modification Requests
+- ✅ QR Code Joining
 - ✅ NFC Session Sharing
-- ⏳ Firebase Integration (planned)
+- ✅ WebSocket Service (waelio-messaging integration ready)
+- ⏳ Full Real-Time Sync (backend running required)
 - ⏳ Real-time Audio (planned)
 - ⏳ User Authentication (planned)
+
+## Real-Time Messaging Integration
+
+Welcom includes WebSocket client code to integrate with the `waelio-messaging` backend for real device-to-device communication.
+
+**Architecture:**
+- `WebSocketService.swift` - Generic WebSocket client for waelio-messaging
+- `SessionMessagingService.swift` - Session-specific sync logic
+- Compatible with: https://github.com/waelio/waelio-messaging
+
+**To use:**
+1. Run messaging server: `cd /path/to/waelio-messaging && npm run dev`
+2. Update server URL in `WebSocketService.swift` if needed
+3. Enable WebSocket sync in `SessionViewModel` (currently commented out)
+4. Both devices connect to same server
+5. Session state syncs automatically
+
+**Currently:** App works standalone with QR codes. WebSocket integration is implemented but optional.
 
 ## NFC Requirements
 
