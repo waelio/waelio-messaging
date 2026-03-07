@@ -8,6 +8,21 @@ struct SessionView: View {
     @State private var exportedLogURL: URL?
     
     var body: some View {
+        Group {
+            if sessionViewModel.isWaitingForParticipant {
+                WaitingRoomView(sessionViewModel: sessionViewModel)
+            } else {
+                activeSessionView
+            }
+        }
+        .onAppear {
+            if !sessionViewModel.isWaitingForParticipant {
+                sessionViewModel.startTimer()
+            }
+        }
+    }
+    
+    private var activeSessionView: some View {
         VStack(spacing: 0) {
             // Header
             sessionHeader
@@ -34,9 +49,6 @@ struct SessionView: View {
             bottomControls
         }
         .navigationBarHidden(true)
-        .onAppear {
-            sessionViewModel.startTimer()
-        }
         .alert("Modification Request", isPresented: $showingModificationSheet) {
             modificationRequestAlert
         }

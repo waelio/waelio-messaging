@@ -8,8 +8,10 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var sessionViewModel = SessionViewModel()
-    @State private var showingSession = false
+    @State private var showingCreateSession = false
+    @State private var showingJoinSession = false
+    @State private var showingDemoSession = false
+    @StateObject private var demoViewModel = SessionViewModel()
     
     var body: some View {
         NavigationView {
@@ -30,11 +32,11 @@ struct ContentView: View {
                 
                 VStack(spacing: 15) {
                     Button {
-                        showingSession = true
+                        showingCreateSession = true
                     } label: {
                         HStack {
-                            Image(systemName: "play.circle.fill")
-                            Text("Start Demo Session")
+                            Image(systemName: "plus.circle.fill")
+                            Text("Create Session")
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -44,7 +46,7 @@ struct ContentView: View {
                     }
                     
                     Button {
-                        // Join session functionality
+                        showingJoinSession = true
                     } label: {
                         HStack {
                             Image(systemName: "rectangle.and.pencil.and.ellipsis")
@@ -52,17 +54,20 @@ struct ContentView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.gray.opacity(0.2))
-                        .foregroundColor(.primary)
+                        .background(Color.green)
+                        .foregroundColor(.white)
                         .cornerRadius(12)
                     }
                     
+                    Divider()
+                        .padding(.vertical, 10)
+                    
                     Button {
-                        // Create session functionality
+                        showingDemoSession = true
                     } label: {
                         HStack {
-                            Image(systemName: "plus.circle")
-                            Text("Create Session")
+                            Image(systemName: "play.circle")
+                            Text("Try Demo")
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -72,13 +77,44 @@ struct ContentView: View {
                     }
                 }
                 .padding(.horizontal, 40)
+                
+                Spacer()
+                
+                VStack(spacing: 8) {
+                    HStack(spacing: 20) {
+                        FeatureLabel(icon: "timer", text: "Turn Timer")
+                        FeatureLabel(icon: "note.text", text: "Private Notes")
+                        FeatureLabel(icon: "list.bullet", text: "Session Log")
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.bottom, 20)
             }
             .navigationTitle("Welcom")
-            .fullScreenCover(isPresented: $showingSession) {
+            .sheet(isPresented: $showingCreateSession) {
+                CreateSessionView()
+            }
+            .sheet(isPresented: $showingJoinSession) {
+                JoinSessionView()
+            }
+            .fullScreenCover(isPresented: $showingDemoSession) {
                 NavigationStack {
-                    SessionView(sessionViewModel: sessionViewModel)
+                    SessionView(sessionViewModel: demoViewModel)
                 }
             }
+        }
+    }
+}
+
+struct FeatureLabel: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+            Text(text)
         }
     }
 }

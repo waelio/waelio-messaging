@@ -8,12 +8,13 @@ Professional turn-based negotiation sessions for iOS with real-time features and
 - ✅ **Session Timer**: Visual countdown with configurable turn duration
 - ✅ **Private Notes**: Take notes during opponent's turn
 - ✅ **Session Logging**: Complete session history with export capability
+- ✅ **NFC Session Sharing**: Tap phones together to share/join sessions instantly
 - ✅ **Modification Requests**: Request and approve session changes
   - Extend turn duration
   - Add extra turns
   - Pause/Resume session
   - End session
-- ✅ **Real-time Sync**: Session state synchronized between parties
+- ✅ **Real-time Sync**: Session state synchronized between parties (ready for Firebase)
 - ✅ **SwiftUI + MVVM**: Clean architecture with reactive state management
 
 ## Architecture
@@ -24,16 +25,23 @@ Welcom/
 │   ├── Session.swift           # Session data model
 │   ├── Note.swift              # Private notes model
 │   ├── LogEntry.swift          # Session logging
-│   └── ModificationRequest.swift # Request workflow
+│   ├── ModificationRequest.swift # Request workflow
+│   └── User.swift              # User information
 ├── ViewModels/
 │   └── SessionViewModel.swift  # Session state & logic
 ├── Views/
 │   ├── SessionView.swift       # Main session UI
-│   └── ContentView.swift       # Home screen
+│   ├── ContentView.swift       # Home screen
+│   ├── CreateSessionView.swift # Create new session
+│   ├── JoinSessionView.swift   # Join existing session
+│   └── WaitingRoomView.swift   # Pre-session waiting area
+├── Services/
+│   └── NFCSessionManager.swift # NFC reading/writing
 └── WelcomApp.swift            # App entry point
 ```
 
-## Getting Started
+## Getting S
+- iPhone 7 or later (for NFC functionality)tarted
 
 ### Prerequisites
 
@@ -73,7 +81,20 @@ The app currently runs with mock data for demonstration. To integrate with backe
    - Update in Xcode project settings if needed
 
 ## Usage
+Creating and Joining Sessions
 
+**Option 1: Using NFC (Recommended)**
+1. **Host**: Tap "Create Session" → Fill details → Tap "Share via NFC"  
+2. **Participant**: Tap "Join Session" → Tap "Scan with NFC"  
+3. Hold phones back-to-back until code transfers  
+4. Session automatically starts when both users are connected
+
+**Option 2: Using Session Code**
+1. **Host**: Tap "Create Session" → Share the 6-character code
+2. **Participant**: Tap "Join Session" → Enter code manually
+3. Session starts when participant joins
+
+### 
 ### Starting a Demo Session
 
 1. Launch the app
@@ -97,9 +118,26 @@ The app currently runs with mock data for demonstration. To integrate with backe
 
 ### Turn Management
 
-- Audio automatically mutes/unmutes based on turn
-- Timer shows visual countdown with color coding:
-  - Blue: > 2 minutes remaining
+- ✅ NFC Session Sharing
+- ⏳ Firebase Integration (planned)
+- ⏳ Real-time Audio (planned)
+- ⏳ User Authentication (planned)
+
+## NFC Requirements
+
+**Hardware:**
+- iPhone 7 or later (iPhone XR/XS for background NFC)
+- Both devices must support NFC
+
+**Testing:**
+- NFC only works on physical devices, not simulators
+- Devices must have iOS 13.0 or later
+- Hold devices back-to-back (where NFC antenna is located)
+- Wait for haptic feedback confirming successful read/write
+
+**Entitlements:**
+- Near Field Communication Tag Reading capability is enabled
+- NDEF format support is configured
   - Orange: 1-2 minutes remaining
   - Red: < 1 minute remaining
 

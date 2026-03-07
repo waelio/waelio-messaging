@@ -14,6 +14,8 @@ class SessionViewModel: ObservableObject {
     
     var myParty: Session.TurnParty?
     private let currentUserId: String
+    private let userName: String
+    private let isHost: Bool
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
     
@@ -22,11 +24,28 @@ class SessionViewModel: ObservableObject {
         return session.currentTurn == myParty
     }
     
-    init(sessionId: String? = nil, userId: String = "user-\(UUID().uuidString)") {
-        self.currentUserId = userId
+    var isWaitingForParticipant: Bool {
+        guard let session = session else { return false }
+        return session.status == .waiting && session.partyBId.isEmpty
+    }
+    
+    init(session: Session? = nil, userId: String? = nil, userName: String = "User", isHost: Bool = false) {
+        self.currentUserId = userId ?? UUID().uuidString
+        self.userName = userName
+        self.isHost = isHost
         
-        // For demo: create a mock session
-        if sessionId == nil {
+        if let session = session {
+            self.session = session
+            self.myParty = session.partyAId == self.currentUserId ? .partyA : .partyB
+            self.timeRemaining = session.turnDuration
+            
+            if session.status == .waiting {
+                addLogEntry(type: .sessionStarted, message: "\(userName) created session")
+            } else {
+                addLogEntry(type: .userJoined, message: "\(userName) joined session")
+            }
+        } else {
+            // For demo: create a mock session
             createMockSession()
         }
     }
@@ -209,6 +228,26 @@ class SessionViewModel: ObservableObject {
         addLogEntry(type: .sessionStarted, message: "Demo session started")
         addLogEntry(type: .turnStarted, message: "\(session.currentTurn.displayName) turn started")
         
+        updateMuteStatus()
+    }
+    
+    // MARK: - Session Management (for real implementation with Firebase)
+    
+    func simulateParticipantJoin() {
+        guard var session = session, session.status == .waiting else { return }
+        
+        // Simulate Party B joining
+        session.partyBId = "participant-\(UUID().uuidString)"
+        session.status = .active
+        session.turnStartedAt = Date()
+        
+        self.session = session
+        
+        addLogEntry(type: .userJoined, message: "Party B joined the session")
+        addLogEntry(type: .turnStarted, message: "\(session.currentTurn.displayName) turn started")
+        
+        // Start the timer now that both parties are present
+        startTimer()
         updateMuteStatus()
     }
 }
