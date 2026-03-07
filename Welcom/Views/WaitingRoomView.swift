@@ -40,7 +40,7 @@ struct WaitingRoomView: View {
                     .padding(.vertical, 10)
                     .background(Color.blue)
                     .foregroundColor(.white)
-                    .cornerRadius(10)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
                 
                 if NFCNDEFReaderSession.readingAvailable {
@@ -57,7 +57,7 @@ struct WaitingRoomView: View {
                         .padding(.vertical, 10)
                         .background(Color.green)
                         .foregroundColor(.white)
-                        .cornerRadius(10)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                     .disabled(nfcManager.isWriting)
                 }
