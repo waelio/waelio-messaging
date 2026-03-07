@@ -8,6 +8,8 @@ Professional turn-based negotiation sessions for iOS with real-time features and
 - ✅ **Session Timer**: Visual countdown with configurable turn duration
 - ✅ **Private Notes**: Take notes during opponent's turn
 - ✅ **Session Logging**: Complete session history with export capability
+- ✅ **Session Ratings**: Rate negotiation quality and respectfulness after completion
+- ✅ **QR Code Joining**: Scan QR codes to instantly join sessions
 - ✅ **NFC Session Sharing**: Tap phones together to share/join sessions instantly
 - ✅ **Modification Requests**: Request and approve session changes
   - Extend turn duration
@@ -26,6 +28,7 @@ Welcom/
 │   ├── Note.swift              # Private notes model
 │   ├── LogEntry.swift          # Session logging
 │   ├── ModificationRequest.swift # Request workflow
+│   ├── SessionRating.swift     # Post-session ratings
 │   └── User.swift              # User information
 ├── ViewModels/
 │   └── SessionViewModel.swift  # Session state & logic
@@ -34,9 +37,12 @@ Welcom/
 │   ├── ContentView.swift       # Home screen
 │   ├── CreateSessionView.swift # Create new session
 │   ├── JoinSessionView.swift   # Join existing session
-│   └── WaitingRoomView.swift   # Pre-session waiting area
+│   ├── WaitingRoomView.swift   # Pre-session waiting area
+│   └── SessionRatingView.swift # Post-session feedback
 ├── Services/
-│   └── NFCSessionManager.swift # NFC reading/writing
+│   ├── NFCSessionManager.swift # NFC reading/writing
+│   ├── QRCodeGenerator.swift   # QR code generation
+│   └── QRCodeScanner.swift     # QR code scanning (camera)
 └── WelcomApp.swift            # App entry point
 ```
 
@@ -83,13 +89,18 @@ The app currently runs with mock data for demonstration. To integrate with backe
 ## Usage
 Creating and Joining Sessions
 
-**Option 1: Using NFC (Recommended)**
+**Option 1: Using QR Code (Recommended)**
+1. **Host**: Tap "Create Session" → Session shows QR code in waiting room
+2. **Participant**: Tap "Join Session" → Tap "Scan QR Code" → Point camera at host's screen
+3. Session automatically starts when both users are connected
+
+**Option 2: Using NFC**
 1. **Host**: Tap "Create Session" → Fill details → Tap "Share via NFC"  
 2. **Participant**: Tap "Join Session" → Tap "Scan with NFC"  
 3. Hold phones back-to-back until code transfers  
 4. Session automatically starts when both users are connected
 
-**Option 2: Using Session Code**
+**Option 3: Using Session Code**
 1. **Host**: Tap "Create Session" → Share the 6-character code
 2. **Participant**: Tap "Join Session" → Enter code manually
 3. Session starts when participant joins

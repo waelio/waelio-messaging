@@ -10,6 +10,8 @@ struct JoinSessionView: View {
     @State private var errorMessage: String?
     @State private var joinedSession: Session?
     @State private var showingSession = false
+    @State private var showingQRScanner = false
+    @State private var scannedCode: String?
     
     var body: some View {
         NavigationView {
@@ -46,6 +48,25 @@ struct JoinSessionView: View {
                     }
                 }
                 
+                Section {
+                    Button(action: {
+                        showingQRScanner = true
+                    }) {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "qrcode.viewfinder")
+                            Text("Scan QR Code")
+                                .bold()
+                            Spacer()
+                        }
+                    }
+                } header: {
+                    Text("Quick Join")
+                } footer: {
+                    Text("Scan the QR code shown in the host's waiting room")
+                        .font(.caption)
+                }
+                
                 if NFCNDEFReaderSession.readingAvailable {
                     Section {
                         Button(action: {
@@ -70,19 +91,19 @@ struct JoinSessionView: View {
                 
                 Section("Instructions") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Enter the 6-character code shared by the session host.")
+                        Text("• Scan QR code from host's screen (recommended)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("• Or enter the 6-character code manually")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
                         if NFCNDEFReaderSession.readingAvailable {
-                            Text("Or tap your phone to the host's phone to read the code via NFC.")
+                            Text("• Or tap phones together via NFC")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-                        
-                        Text("You'll join as Party B and will be able to participate once the session starts.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
                     }
                 }
                 
@@ -115,6 +136,14 @@ struct JoinSessionView: View {
                 if let code = newValue {
                     sessionCode = code
                 }
+            }
+            .onChange(of: scannedCode) { oldValue, newValue in
+                if let code = newValue {
+                    sessionCode = code
+                }
+            }
+            .sheet(isPresented: $showingQRScanner) {
+                QRCodeScannerView(scannedCode: $scannedCode)
             }
             .fullScreenCover(isPresented: $showingSession) {
                 if let session = joinedSession {

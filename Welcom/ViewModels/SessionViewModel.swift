@@ -11,9 +11,10 @@ class SessionViewModel: ObservableObject {
     @Published var isMuted: Bool = true
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    @Published var showRatingView: Bool = false
     
     var myParty: Session.TurnParty?
-    private let currentUserId: String
+    let currentUserId: String
     private let userName: String
     private let isHost: Bool
     private var timer: Timer?
@@ -69,8 +70,12 @@ class SessionViewModel: ObservableObject {
     }
     
     func endSession() {
+        guard var session = session else { return }
         timer?.invalidate()
+        session.status = .completed
+        self.session = session
         addLogEntry(type: .sessionEnded, message: "Session ended by user")
+        showRatingView = true
     }
     
     private func handleTurnEnd() {
@@ -85,7 +90,9 @@ class SessionViewModel: ObservableObject {
         
         if session.currentTurnNumber > session.maxTurns {
             session.status = .completed
+            timer?.invalidate()
             addLogEntry(type: .sessionEnded, message: "Session completed - max turns reached")
+            showRatingView = true
         } else {
             addLogEntry(type: .turnStarted, message: "\(session.currentTurn.displayName) turn started")
             timeRemaining = session.turnDuration
@@ -168,6 +175,7 @@ class SessionViewModel: ObservableObject {
             session.status = .completed
             timer?.invalidate()
             addLogEntry(type: .sessionEnded, message: "Session ended by mutual agreement")
+            showRatingView = true
         }
         
         self.session = session

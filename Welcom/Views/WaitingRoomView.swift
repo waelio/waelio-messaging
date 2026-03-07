@@ -17,16 +17,29 @@ struct WaitingRoomView: View {
                     .font(.headline)
                     .foregroundColor(.secondary)
                 
+                // QR Code
+                if let code = sessionViewModel.session?.sessionCode,
+                   let qrImage = QRCodeGenerator.generateQRCode(from: code) {
+                    Image(uiImage: qrImage)
+                        .interpolation(.none)
+                        .resizable()
+                        .frame(width: 200, height: 200)
+                        .padding()
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .shadow(radius: 5)
+                }
+                
                 Text(sessionViewModel.session?.sessionCode ?? "")
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                    .tracking(8)
-                    .padding(.horizontal, 30)
-                    .padding(.vertical, 20)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .tracking(4)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 12)
                             .fill(Color.blue.opacity(0.1))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 16)
+                                RoundedRectangle(cornerRadius: 12)
                                     .stroke(Color.blue, lineWidth: 2)
                             )
                     )

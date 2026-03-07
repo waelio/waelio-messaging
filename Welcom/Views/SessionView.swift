@@ -57,6 +57,14 @@ struct SessionView: View {
                 ShareSheet(items: [url])
             }
         }
+        .sheet(isPresented: $sessionViewModel.showRatingView) {
+            if let session = sessionViewModel.session {
+                SessionRatingView(
+                    session: session,
+                    userId: sessionViewModel.currentUserId
+                )
+            }
+        }
     }
     
     // MARK: - Header
