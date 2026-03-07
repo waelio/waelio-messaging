@@ -26,5 +26,14 @@ export declare class MessagingHub {
     private _getRoomId;
     private _findOtherParticipant;
     private _handleClientMessage;
+    /**
+     * Send a direct message to a connected client by ID.
+     * Returns true if delivered, false if client not found.
+     */
+    sendToClient(recipientId: string, payload: any, from?: string): Promise<boolean>;
+    /**
+     * Broadcast a message to all clients except optional senderId.
+     */
+    broadcast(payload: any, from?: string, excludeId?: string): Promise<void>;
 }
 export {};
