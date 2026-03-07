@@ -10,22 +10,9 @@
 		1F1DBC8B2F5C266800D6E7D9 /* Welcom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Welcom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		1F1DBC9B2F5C266C00D6E7D9 /* Exceptions for "Welcom" folder in "Welcom" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 1F1DBC8A2F5C266800D6E7D9 /* Welcom */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1F1DBC8D2F5C266800D6E7D9 /* Welcom */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				1F1DBC9B2F5C266C00D6E7D9 /* Exceptions for "Welcom" folder in "Welcom" target */,
-			);
 			path = Welcom;
 			sourceTree = "<group>";
 		};
@@ -149,7 +136,6 @@
 				DEVELOPMENT_TEAM = 5CY5WTPYKZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Welcom/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -183,7 +169,6 @@
 				DEVELOPMENT_TEAM = 5CY5WTPYKZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Welcom/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
