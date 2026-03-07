@@ -83,11 +83,11 @@ struct WaitingRoomView: View {
                 ProgressView()
                     .scaleEffect(1.5)
                 
-                Text("Waiting for participant to join...")
+                Text("Waiting for other person...")
                     .font(.headline)
                     .foregroundColor(.secondary)
                 
-                Text("Share the code above with the other party")
+                Text("Share the QR code or session code above")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -98,9 +98,9 @@ struct WaitingRoomView: View {
             
             // Session details
             VStack(alignment: .leading, spacing: 12) {
-                DetailRow(icon: "person.fill", title: "Host", value: sessionViewModel.myParty?.displayName ?? "You")
-                DetailRow(icon: "timer", title: "Turn Duration", value: timeString(from: sessionViewModel.session?.turnDuration ?? 120))
-                DetailRow(icon: "arrow.left.arrow.right", title: "Max Turns", value: "\(sessionViewModel.session?.maxTurns ?? 10)")
+                DetailRow(icon: "person.fill", title: "Started by", value: sessionViewModel.myParty?.displayName ?? "You")
+                DetailRow(icon: "timer", title: "Time per turn", value: timeString(from: sessionViewModel.session?.turnDuration ?? 120))
+                DetailRow(icon: "arrow.left.arrow.right", title: "Total turns", value: "\(sessionViewModel.session?.maxTurns ?? 10) each")
             }
             .padding(20)
             .background(
@@ -111,7 +111,7 @@ struct WaitingRoomView: View {
             
             Spacer()
             
-            Button("Cancel Session") {
+            Button("Cancel") {
                 sessionViewModel.endSession()
                 dismiss()
             }
@@ -131,7 +131,7 @@ struct WaitingRoomView: View {
         .sheet(isPresented: $showingShareSheet) {
             if let code = sessionViewModel.session?.sessionCode {
                 ShareSheet(items: [
-                    "Join my negotiation session with code: \(code)\n\nDownload Welcom to participate."
+                    "Join my conversation with code: \(code)\n\nDownload Welcom for safe, respectful communication."
                 ])
             }
         }

@@ -16,15 +16,15 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 30) {
-                Image(systemName: "person.2.wave.2")
+                Image(systemName: "bubble.left.and.bubble.right")
                     .font(.system(size: 80))
                     .foregroundColor(.blue)
                 
-                Text("Turn-Based Negotiation")
+                Text("Safe Communication")
                     .font(.title)
                     .bold()
                 
-                Text("Professional negotiation sessions with turn-based speaking, private notes, and session logging")
+                Text("Facilitate respectful, turn-based conversations. One person speaks at a time, preventing interruptions and promoting understanding.")
                     .font(.subheadline)
                     .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
@@ -36,7 +36,7 @@ struct ContentView: View {
                     } label: {
                         HStack {
                             Image(systemName: "plus.circle.fill")
-                            Text("Create Session")
+                            Text("Start Conversation")
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -49,8 +49,8 @@ struct ContentView: View {
                         showingJoinSession = true
                     } label: {
                         HStack {
-                            Image(systemName: "rectangle.and.pencil.and.ellipsis")
-                            Text("Join Session")
+                            Image(systemName: "person.badge.plus")
+                            Text("Join Conversation")
                         }
                         .frame(maxWidth: .infinity)
                         .padding()

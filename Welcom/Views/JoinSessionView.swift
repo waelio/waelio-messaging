@@ -89,13 +89,13 @@ struct JoinSessionView: View {
                     }
                 }
                 
-                Section("Instructions") {
+                Section("How to Join") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("• Scan QR code from host's screen (recommended)")
+                        Text("• Scan QR code from other person's screen (fastest)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        Text("• Or enter the 6-character code manually")
+                        Text("• Or enter the 6-character code they share")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
@@ -104,6 +104,14 @@ struct JoinSessionView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+                        
+                        Divider()
+                            .padding(.vertical, 4)
+                        
+                        Text("Once joined, you'll take turns speaking. Only one person can talk at a time, creating a safe space for respectful communication.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .italic()
                     }
                 }
                 
@@ -115,7 +123,7 @@ struct JoinSessionView: View {
                                 ProgressView()
                                     .padding(.trailing, 8)
                             }
-                            Text(isJoining ? "Joining..." : "Join Session")
+                            Text(isJoining ? "Joining..." : "Join Conversation")
                                 .bold()
                             Spacer()
                         }
@@ -123,7 +131,7 @@ struct JoinSessionView: View {
                     .disabled(sessionCode.count != 6 || userName.isEmpty || isJoining)
                 }
             }
-            .navigationTitle("Join Session")
+            .navigationTitle("Join Conversation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

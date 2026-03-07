@@ -1,6 +1,18 @@
-# Welcom - Turn-Based Negotiation iOS App
+# Welcom - Safe Communication for Difficult Conversations
 
-Professional turn-based negotiation sessions for iOS with real-time features and session management.
+Welcom facilitates safe, friendly, and respectful communication between parties during difficult conversations. By enforcing turn-based speaking with automatic muting, both people can express themselves without interruption, yelling, or talking over each other.
+
+## Why Welcom?
+
+Difficult conversations often break down when people interrupt, raise voices, or talk over each other. Welcom creates a structured, safe space for communication by:
+
+- **Preventing Interruptions**: Only one person can speak at a time
+- **Equal Voice**: Both parties get fair, timed turns to express themselves
+- **Reducing Tension**: Automatic muting prevents heated overlapping arguments
+- **Promoting Respect**: Turn-based structure encourages thoughtful listening
+- **Building Understanding**: Private notes help process what you hear without immediate reaction
+
+Perfect for: couples therapy, family discussions, workplace conflicts, mediation sessions, or any conversation that needs structure.
 
 ## Features
 

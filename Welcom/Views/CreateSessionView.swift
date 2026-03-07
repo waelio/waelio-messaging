@@ -14,17 +14,17 @@ struct CreateSessionView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("Session Details") {
-                    TextField("Session Title", text: $sessionTitle)
+                Section("Conversation Setup") {
+                    TextField("Topic (e.g., Family Discussion)", text: $sessionTitle)
                     TextField("Your Name", text: $userName)
                     
-                    Picker("Max Turns", selection: $maxTurns) {
+                    Picker("Number of Turns", selection: $maxTurns) {
                         ForEach([5, 10, 15, 20], id: \.self) { turns in
-                            Text("\(turns) turns").tag(turns)
+                            Text("\(turns) turns each").tag(turns)
                         }
                     }
                     
-                    Picker("Turn Duration", selection: $turnDuration) {
+                    Picker("Time Per Turn", selection: $turnDuration) {
                         Text("1 minute").tag(TimeInterval(60))
                         Text("2 minutes").tag(TimeInterval(120))
                         Text("3 minutes").tag(TimeInterval(180))
@@ -32,13 +32,17 @@ struct CreateSessionView: View {
                     }
                 }
                 
-                Section("Instructions") {
+                Section("How It Works") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Creating a new session will generate a unique code that others can use to join.")
+                        Text("• Both people get equal, timed turns to speak")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        Text("Share the code with the other participant to begin the negotiation.")
+                        Text("• Only one person can talk at a time - no interruptions")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("• Share the code with the other person to begin")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -48,7 +52,7 @@ struct CreateSessionView: View {
                     Button(action: createSession) {
                         HStack {
                             Spacer()
-                            Text("Create Session")
+                            Text("Start Conversation")
                                 .bold()
                             Spacer()
                         }
@@ -56,7 +60,7 @@ struct CreateSessionView: View {
                     .disabled(sessionTitle.isEmpty || userName.isEmpty)
                 }
             }
-            .navigationTitle("Create Session")
+            .navigationTitle("Start a Conversation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
