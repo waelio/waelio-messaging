@@ -15,8 +15,7 @@ The app currently works in **standalone mode**:
 ### Step 1: Start the Messaging Server
 
 ```bash
-cd /Users/waelio/Code/waelio-messaging
-npm install
+npm i @waelio/messagingnpm install
 npm run dev
 ```
 
