@@ -1,6 +1,6 @@
 # WebSocket Integration Guide
 
-This guide explains how to enable real-time communication between devices using the `waelio-messaging` backend.
+This guide explains how to enable real-time communication between devices using the [waelio-messaging](https://github.com/waelio/waelio-messaging.git)` backend.
 
 ## Current State
 
