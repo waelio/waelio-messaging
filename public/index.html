@@ -132,8 +132,6 @@
           const roomId = ref(null);
           const roomPartner = ref(null);
           const selectedUser = ref(null);
-          const viewMode = ref("empty");
-          const isEmptyView = computed(() => viewMode.value === "empty");
           const notifyEnabled = ref(true);
           // Background activity counter:
           // increments when new non-self messages arrive while the tab is hidden.
@@ -158,10 +156,6 @@
             if (savedSelected) selectedUser.value = savedSelected;
             const savedDraft = window.uStore?.local.get("inputDraft");
             if (typeof savedDraft === "string") input.value = savedDraft;
-            const savedViewMode = window.uStore?.local.get("viewMode");
-            if (savedViewMode === "chat" || savedViewMode === "empty") {
-              viewMode.value = savedViewMode;
-            }
             const savedDark = window.uStore?.local.get("themeDark");
             const savedAuto = window.uStore?.local.get("themeAuto");
             if (typeof savedAuto === "boolean") themeAuto.value = savedAuto;
@@ -539,12 +533,6 @@
               1200,
             );
           }
-          function openEmptyView() {
-            viewMode.value = "empty";
-          }
-          function openChatView() {
-            viewMode.value = "chat";
-          }
           const typingLabel = computed(() => {
             const arr = Array.from(typingUsers.value).filter(
               (id) => id !== clientId.value,
@@ -574,9 +562,6 @@
             );
             watch(selectedUser, (v) =>
               window.uStore?.local.set("selectedUser", v || ""),
-            );
-            watch(viewMode, (v) =>
-              window.uStore?.local.set("viewMode", v || "chat"),
             );
             watch(input, (v) =>
               window.uStore?.local.set("inputDraft", v || ""),
@@ -627,14 +612,11 @@
             sendMessage,
             chooseUser,
             selectedUser,
-            viewMode,
-            isEmptyView,
+
             loadHistory,
             startRoom,
             leaveRoom,
             handleTyping,
-            openEmptyView,
-            openChatView,
             roomId,
             roomPartner,
             reconnecting,
@@ -678,8 +660,6 @@
               </div>
               <q-btn dense flat icon="history" @click="loadHistory" label="History" />
               <q-btn dense flat icon="campaign" @click="sendMessage(true)" label="Broadcast" />
-              <q-btn dense flat icon="forum" @click="openChatView" label="Chat" v-if="isEmptyView" />
-              <q-btn dense flat icon="crop_square" @click="openEmptyView" label="Empty" v-else />
               <q-btn dense flat :icon="themeButtonIcon" @click="toggleDark" :label="themeButtonLabel" />
               <q-btn v-if="canInstall" dense flat icon="download" @click="triggerInstall" label="Install" />
               <q-space />
@@ -712,57 +692,7 @@
             </div>
           </q-header>
           <q-page-container>
-            <q-page v-if="isEmptyView" class="column flex-center">
-              <div class="text-center q-pa-xl">
-                <div class="text-h4 q-mb-md text-primary">Welcome to Messaging Hub</div>
-                <div class="text-h6 q-mb-lg">Real-time communication made simple</div>
-
-                <q-card flat class="q-mb-lg" style="max-width: 600px;">
-                  <q-card-section>
-                    <div class="text-h6 q-mb-md">Features</div>
-                    <q-list>
-                      <q-item>
-                        <q-item-section avatar>
-                          <q-icon name="chat" color="primary" />
-                        </q-item-section>
-                        <q-item-section>Real-time text messaging</q-item-section>
-                      </q-item>
-                      <q-item>
-                        <q-item-section avatar>
-                          <q-icon name="mic" color="secondary" />
-                        </q-item-section>
-                        <q-item-section>Voice messages & audio recording</q-item-section>
-                      </q-item>
-                      <q-item>
-                        <q-item-section avatar>
-                          <q-icon name="group" color="accent" />
-                        </q-item-section>
-                        <q-item-section>Direct messages & broadcasts</q-item-section>
-                      </q-item>
-                      <q-item>
-                        <q-item-section avatar>
-                          <q-icon name="history" color="info" />
-                        </q-item-section>
-                        <q-item-section>Message history & persistence</q-item-section>
-                      </q-item>
-                      <q-item>
-                        <q-item-section avatar>
-                          <q-icon name="room" color="positive" />
-                        </q-item-section>
-                        <q-item-section>Private rooms for focused chats</q-item-section>
-                      </q-item>
-                    </q-list>
-                  </q-card-section>
-                </q-card>
-
-                <div class="text-body2 q-mb-lg text-grey-7">
-                  Open this app in multiple tabs or share the link to start chatting!
-                </div>
-
-                <q-btn color="primary" icon="forum" label="Start Chatting" size="lg" @click="openChatView" />
-              </div>
-            </q-page>
-            <q-page v-else class="row no-wrap">
+            <q-page class="row no-wrap">
               <div class="column col-auto q-pa-sm" style="width:260px;max-width:100%;">
                 <q-card flat bordered class="full-height">
                   <q-card-section class="q-pb-xs"><div class="text-caption text-grey">Users Online</div></q-card-section>
