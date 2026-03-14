@@ -321,4 +321,11 @@ export class MessagingHub {
             clientWs.send(JSON.stringify(broadcastMessage));
         }
     }
+
+    /**
+     * Get the list of currently connected client IDs.
+     */
+    getConnectedUsers(): string[] {
+        return Array.from(this.clients.keys());
+    }
 }

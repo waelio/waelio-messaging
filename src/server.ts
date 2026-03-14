@@ -50,6 +50,12 @@ async function startServer() {
         return res.json({ ok: true });
     });
 
+    // API to get list of online users
+    app.get('/api/users', (req, res) => {
+        const users = hub.getConnectedUsers ? hub.getConnectedUsers() : [];
+        return res.json({ users });
+    });
+
     // Start the HTTP server
     server.listen(PORT, () => {
         console.log(`[Server] HTTP and WebSocket server started on port ${PORT}`);

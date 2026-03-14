@@ -35,5 +35,9 @@ export declare class MessagingHub {
      * Broadcast a message to all clients except optional senderId.
      */
     broadcast(payload: any, from?: string, excludeId?: string): Promise<void>;
+    /**
+     * Get the list of currently connected client IDs.
+     */
+    getConnectedUsers(): string[];
 }
 export {};
