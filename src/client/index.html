@@ -60,7 +60,7 @@
         createCanvas(windowWidth, windowHeight);
         background(0);
         textAlign(CENTER, CENTER);
-        textSize(16);
+        textSize(20);
       }
 
       function draw() {
@@ -85,16 +85,24 @@
           } else {
             noStroke();
           }
-          ellipse(x, y, 40, 40);
+          ellipse(x, y, 80, 80);
           noStroke();
           fill(255);
-          text(user.substring(0, 8), x, y);
+          textAlign(CENTER, CENTER);
+          text(user.substring(0, 6), x, y);
         });
 
-        // Draw message animations
+        // Draw message animations (flames/meteors)
         messageAnimations.forEach((anim, index) => {
-          anim.progress += 0.02;
-          if (anim.progress >= 1) {
+          anim.progress += 0.015; // Slower for better visibility
+
+          // Apply offset delay for second flame
+          const effectiveProgress = Math.max(
+            0,
+            anim.progress - (anim.offset || 0),
+          );
+
+          if (effectiveProgress >= 1) {
             messageAnimations.splice(index, 1);
             return;
           }
@@ -104,11 +112,32 @@
             y: centerY,
           };
           const toPos = userPositions[anim.to] || { x: centerX, y: centerY };
-          const x = lerp(fromPos.x, toPos.x, anim.progress);
-          const y = lerp(fromPos.y, toPos.y, anim.progress);
+          const x = lerp(fromPos.x, toPos.x, effectiveProgress);
+          const y = lerp(fromPos.y, toPos.y, effectiveProgress);
 
-          fill(anim.broadcast ? "yellow" : "red");
-          ellipse(x, y, 10, 10);
+          // Flame/meteor appearance
+          const size = 20 + sin(effectiveProgress * PI * 4) * 8; // Bigger pulsing size
+          const alpha = (1 - effectiveProgress) * 255; // Fade out
+
+          // Color based on message type and flame
+          if (anim.broadcast) {
+            fill(255, 255, 0, alpha); // Yellow for broadcast
+          } else {
+            // Red-orange flame colors
+            if (anim.flameId === 0) {
+              fill(255, 100, 0, alpha); // Orange flame
+            } else {
+              fill(255, 50, 0, alpha); // Red flame
+            }
+          }
+
+          noStroke();
+          // Draw elongated flame shape
+          ellipse(x, y, size * 1.5, size * 0.7);
+
+          // Add a small glow/trail effect
+          fill(255, 200, 0, alpha * 0.3);
+          ellipse(x, y, size * 2.5, size * 1.2);
         });
       }
 
@@ -123,7 +152,7 @@
           const x = centerX + cos(angle) * radius;
           const y = centerY + sin(angle) * radius;
           const d = dist(mouseX, mouseY, x, y);
-          if (d < 20) {
+          if (d < 40 && user !== clientId) {
             // within circle
             selectedUser = user;
             sendMessage(false);
@@ -187,13 +216,17 @@
                 ts: new Date(),
                 me: msg.from === clientId,
               });
-              // Add animation
-              messageAnimations.push({
-                from: msg.from,
-                to: msg.to || (msg.isBroadcast ? null : clientId),
-                broadcast: msg.isBroadcast,
-                progress: 0,
-              });
+              // Add 2 flame animations per message
+              for (let i = 0; i < 2; i++) {
+                messageAnimations.push({
+                  from: msg.from,
+                  to: msg.to || (msg.isBroadcast ? null : clientId),
+                  broadcast: msg.isBroadcast,
+                  progress: 0,
+                  offset: i * 0.1, // Slight delay between flames
+                  flameId: i,
+                });
+              }
               break;
             case "message-history":
               msg.history.forEach((h) =>
