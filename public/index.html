@@ -714,9 +714,52 @@
           <q-page-container>
             <q-page v-if="isEmptyView" class="column flex-center">
               <div class="text-center q-pa-xl">
-                <div class="text-h5 q-mb-sm">Empty View</div>
-                <div class="text-subtitle2 text-grey-7 q-mb-md">Chat UI is hidden right now.</div>
-                <q-btn color="primary" icon="forum" label="Back to Chat" @click="openChatView" />
+                <div class="text-h4 q-mb-md text-primary">Welcome to Messaging Hub</div>
+                <div class="text-h6 q-mb-lg">Real-time communication made simple</div>
+
+                <q-card flat class="q-mb-lg" style="max-width: 600px;">
+                  <q-card-section>
+                    <div class="text-h6 q-mb-md">Features</div>
+                    <q-list>
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="chat" color="primary" />
+                        </q-item-section>
+                        <q-item-section>Real-time text messaging</q-item-section>
+                      </q-item>
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="mic" color="secondary" />
+                        </q-item-section>
+                        <q-item-section>Voice messages & audio recording</q-item-section>
+                      </q-item>
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="group" color="accent" />
+                        </q-item-section>
+                        <q-item-section>Direct messages & broadcasts</q-item-section>
+                      </q-item>
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="history" color="info" />
+                        </q-item-section>
+                        <q-item-section>Message history & persistence</q-item-section>
+                      </q-item>
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="room" color="positive" />
+                        </q-item-section>
+                        <q-item-section>Private rooms for focused chats</q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-card-section>
+                </q-card>
+
+                <div class="text-body2 q-mb-lg text-grey-7">
+                  Open this app in multiple tabs or share the link to start chatting!
+                </div>
+
+                <q-btn color="primary" icon="forum" label="Start Chatting" size="lg" @click="openChatView" />
               </div>
             </q-page>
             <q-page v-else class="row no-wrap">
