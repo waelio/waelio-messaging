@@ -19,747 +19,228 @@
       rel="stylesheet"
       type="text/css"
     />
-    <link
-      href="https://cdn.jsdelivr.net/npm/quasar@2.18.5/dist/quasar.prod.css"
-      rel="stylesheet"
-      type="text/css"
-    />
     <style>
       html,
       body,
-      #q-app {
+      canvas {
         height: 100%;
+        margin: 0;
+        padding: 0;
       }
       body {
         margin: 0;
       }
-      .message-item.me {
-        align-self: flex-end;
-      }
-      .message-item.other {
-        align-self: flex-start;
-      }
-      .message-item.broadcast {
-        align-self: center;
-      }
-      .activity-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: #ff5252;
-        display: inline-block;
-        box-shadow: 0 0 0 rgba(255, 82, 82, 0.7);
-        animation: pulse 1.2s infinite;
-      }
-      @keyframes pulse {
-        0% {
-          transform: scale(0.95);
-          box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.7);
-        }
-        70% {
-          transform: scale(1);
-          box-shadow: 0 0 0 10px rgba(255, 82, 82, 0);
-        }
-        100% {
-          transform: scale(0.95);
-          box-shadow: 0 0 0 0 rgba(255, 82, 82, 0);
-        }
-      }
     </style>
   </head>
   <body>
-    <div id="q-app"></div>
-    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/quasar@2.18.5/dist/quasar.umd.prod.js"></script>
-    <script type="module" src="/components/waelio-message.js"></script>
-    <script type="module">
-      import { uStore } from "https://esm.sh/@waelio/ustore@1.0.8";
-      window.uStore = uStore;
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/p5.min.js"></script>
     <script>
-      const { ref, computed, onMounted, watch } = Vue;
+      // WebSocket URL
       const WS_URL =
         (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
-      // Keep the original page title so activity badges can be reverted cleanly.
-      const baseTitle = document.title || "Messaging Hub UI";
-      // PWA install prompt handling
-      let deferredInstallPrompt = null;
-      const canInstallRef = ref(false);
-      window.addEventListener("beforeinstallprompt", (e) => {
-        e.preventDefault();
-        deferredInstallPrompt = e;
-        canInstallRef.value = true;
-        console.log("[PWA] beforeinstallprompt captured");
-      });
-      window.addEventListener("appinstalled", () => {
-        console.log("[PWA] App installed");
-        deferredInstallPrompt = null;
-        canInstallRef.value = false;
-      });
-      const app = Vue.createApp({
-        setup() {
-          const connected = ref(false);
-          const socket = ref(null);
-          const clientId = ref("");
-          const users = ref([]);
-          const messages = ref([]);
-          const input = ref("");
-          const typingUsers = ref(new Set());
-          // Deterministic per-user color palette (avoid reserved UI semantic colors except primary for self & accent for broadcast)
-          const userPalette = [
-            "indigo",
-            "teal",
-            "deep-orange",
-            "amber",
-            "lime",
-            "purple",
-            "cyan",
-            "pink",
-            "green",
-            "blue-grey",
-            "brown",
-          ];
-          function colorFor(id) {
-            if (!id) return "grey";
-            let hash = 0;
-            for (let i = 0; i < id.length; i++) {
-              hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-            }
-            const base = userPalette[hash % userPalette.length];
-            const shade = 7; // mid shade for readability
-            return `${base}-${shade}`;
-          }
-          const roomId = ref(null);
-          const roomPartner = ref(null);
-          const selectedUser = ref(null);
-          const notifyEnabled = ref(true);
-          // Background activity counter:
-          // increments when new non-self messages arrive while the tab is hidden.
-          const backgroundUnread = ref(0);
-          const hasBackgroundActivity = computed(
-            () => backgroundUnread.value > 0,
-          );
-          const isDark = ref(Quasar.Dark.isActive);
-          const themeAuto = ref(false);
-          const themeButtonLabel = computed(() =>
-            themeAuto.value ? "System" : isDark.value ? "Light" : "Dark",
-          );
-          const themeButtonIcon = computed(() =>
-            isDark.value ? "light_mode" : "dark_mode",
-          );
-          // Restore persisted state (best-effort)
-          try {
-            const savedNotify = window.uStore?.local.get("notifyEnabled");
-            if (typeof savedNotify === "boolean")
-              notifyEnabled.value = savedNotify;
-            const savedSelected = window.uStore?.local.get("selectedUser");
-            if (savedSelected) selectedUser.value = savedSelected;
-            const savedDraft = window.uStore?.local.get("inputDraft");
-            if (typeof savedDraft === "string") input.value = savedDraft;
-            const savedDark = window.uStore?.local.get("themeDark");
-            const savedAuto = window.uStore?.local.get("themeAuto");
-            if (typeof savedAuto === "boolean") themeAuto.value = savedAuto;
-            if (typeof savedDark === "boolean") {
-              Quasar.Dark.set(savedDark);
-              isDark.value = Quasar.Dark.isActive;
-            }
-          } catch {}
-          // System theme auto-detect if no explicit preference stored
-          let mediaQuery = null;
-          let onMQChange = null;
-          try {
-            const hasSaved =
-              typeof window.uStore?.local.get("themeDark") === "boolean";
-            if (!hasSaved) {
-              themeAuto.value = true;
-            }
-            if (themeAuto.value && typeof window.matchMedia === "function") {
-              mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-              onMQChange = () => {
-                if (themeAuto.value) {
-                  Quasar.Dark.set(mediaQuery.matches);
-                  isDark.value = Quasar.Dark.isActive;
-                }
-              };
-              onMQChange();
-              if (mediaQuery.addEventListener)
-                mediaQuery.addEventListener("change", onMQChange);
-              else if (mediaQuery.addListener)
-                mediaQuery.addListener(onMQChange);
-            }
-          } catch {}
-          const reconnecting = ref(false);
-          const retryAttempt = ref(0);
-          const nextRetryIn = ref(0);
-          let typingTimeout = null;
-          let reconnectTimer = null;
-          let countdownTimer = null;
-          let faviconBaseDataUrl = null;
 
-          // Visual signal #1: tab title unread count, e.g. "(3) Messaging Hub UI".
-          function updateTitleBadge() {
-            document.title =
-              backgroundUnread.value > 0
-                ? `(${backgroundUnread.value}) ${baseTitle}`
-                : baseTitle;
+      // State variables
+      let connected = false;
+      let socket = null;
+      let clientId = "";
+      let users = [];
+      let messages = [];
+      let selectedUser = null;
+      let reconnecting = false;
+      let retryAttempt = 0;
+      let nextRetryIn = 0;
+      let reconnectTimer = null;
+      let countdownTimer = null;
+
+      // Canvas variables
+      let userPositions = {};
+      let messageAnimations = [];
+
+      function setup() {
+        createCanvas(windowWidth, windowHeight);
+        background(0);
+        textAlign(CENTER, CENTER);
+        textSize(16);
+      }
+
+      function draw() {
+        background(0, 20); // slight fade
+
+        // Draw users as circles in a circle
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = min(width, height) / 4;
+        const angleStep = TWO_PI / users.length;
+
+        users.forEach((user, i) => {
+          const angle = i * angleStep;
+          const x = centerX + cos(angle) * radius;
+          const y = centerY + sin(angle) * radius;
+          userPositions[user] = { x, y };
+
+          fill(user === clientId ? "blue" : "green");
+          if (user === selectedUser) {
+            stroke("white");
+            strokeWeight(3);
+          } else {
+            noStroke();
+          }
+          ellipse(x, y, 40, 40);
+          noStroke();
+          fill(255);
+          text(user.substring(0, 8), x, y);
+        });
+
+        // Draw message animations
+        messageAnimations.forEach((anim, index) => {
+          anim.progress += 0.02;
+          if (anim.progress >= 1) {
+            messageAnimations.splice(index, 1);
+            return;
           }
 
-          // Cache the base favicon as a data URL once, then draw notification overlays on top.
-          async function ensureFaviconBase() {
-            if (faviconBaseDataUrl) return faviconBaseDataUrl;
-            const img = new Image();
-            img.src = "/favicon-32x32.png";
-            await new Promise((resolve, reject) => {
-              img.onload = resolve;
-              img.onerror = reject;
-            });
-            const canvas = document.createElement("canvas");
-            canvas.width = 32;
-            canvas.height = 32;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return null;
-            ctx.drawImage(img, 0, 0, 32, 32);
-            faviconBaseDataUrl = canvas.toDataURL("image/png");
-            return faviconBaseDataUrl;
-          }
-
-          // Visual signal #2: favicon badge generated via Canvas API.
-          async function updateFaviconBadge() {
-            const iconEl = document.querySelector(
-              'link[rel="icon"][sizes="32x32"]',
-            );
-            if (!iconEl) return;
-
-            if (backgroundUnread.value <= 0) {
-              iconEl.setAttribute("href", "/favicon-32x32.png");
-              return;
-            }
-
-            try {
-              const base = await ensureFaviconBase();
-              if (!base) return;
-              const img = new Image();
-              img.src = base;
-              await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
-              });
-              const canvas = document.createElement("canvas");
-              canvas.width = 32;
-              canvas.height = 32;
-              const ctx = canvas.getContext("2d");
-              if (!ctx) return;
-              ctx.drawImage(img, 0, 0, 32, 32);
-              ctx.fillStyle = "#ff1744";
-              ctx.beginPath();
-              ctx.arc(24, 8, 8, 0, Math.PI * 2);
-              ctx.fill();
-              ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 10px sans-serif";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              const n =
-                backgroundUnread.value > 9
-                  ? "9+"
-                  : String(backgroundUnread.value);
-              ctx.fillText(n, 24, 8);
-              iconEl.setAttribute("href", canvas.toDataURL("image/png"));
-            } catch (e) {
-              // best-effort only
-            }
-          }
-
-          // Clear unread activity when user returns to the app/tab.
-          function clearBackgroundActivity() {
-            if (backgroundUnread.value === 0) return;
-            backgroundUnread.value = 0;
-            updateTitleBadge();
-            updateFaviconBadge();
-          }
-
-          // Mark activity only when app is in the background.
-          function markBackgroundActivity() {
-            if (document.hidden) {
-              backgroundUnread.value += 1;
-              updateTitleBadge();
-              updateFaviconBadge();
-            }
-          }
-          function notify(opts) {
-            if (!notifyEnabled.value) return;
-            try {
-              Quasar.Notify.create(
-                Object.assign({ position: "top-right", timeout: 2500 }, opts),
-              );
-            } catch (e) {}
-          }
-          function clearReconnectTimers() {
-            if (reconnectTimer) {
-              clearTimeout(reconnectTimer);
-              reconnectTimer = null;
-            }
-            if (countdownTimer) {
-              clearInterval(countdownTimer);
-              countdownTimer = null;
-            }
-          }
-          function scheduleReconnect() {
-            if (reconnectTimer) return; // already scheduled
-            reconnecting.value = true;
-            const delays = [1000, 2000, 5000, 10000, 20000, 30000];
-            const idx = Math.min(retryAttempt.value, delays.length - 1);
-            const delay = delays[idx];
-            nextRetryIn.value = Math.ceil(delay / 1000);
-            clearReconnectTimers();
-            countdownTimer = setInterval(() => {
-              if (nextRetryIn.value > 0) nextRetryIn.value -= 1;
-            }, 1000);
-            reconnectTimer = setTimeout(() => {
-              reconnectTimer = null;
-              connect();
-            }, delay);
-            retryAttempt.value += 1;
-          }
-          function retryNow() {
-            clearReconnectTimers();
-            connect();
-          }
-          function connect() {
-            socket.value = new WebSocket(WS_URL);
-            socket.value.onopen = () => {
-              connected.value = true;
-              reconnecting.value = false;
-              clearReconnectTimers();
-              if (retryAttempt.value > 0) {
-                notify({
-                  color: "positive",
-                  message: "Reconnected",
-                  caption: clientId.value ? clientId.value.substring(0, 8) : "",
-                });
-              } else {
-                notify({
-                  color: "positive",
-                  message: "Connected",
-                  caption: clientId.value ? clientId.value.substring(0, 8) : "",
-                });
-              }
-              retryAttempt.value = 0;
-            };
-            socket.value.onmessage = (ev) => {
-              const msg = JSON.parse(ev.data);
-              switch (msg.type) {
-                case "register-success":
-                  clientId.value = msg.id;
-                  try {
-                    window.uStore?.local.set("clientId", msg.id);
-                  } catch {}
-                  notify({
-                    color: "positive",
-                    message: "Registered",
-                    caption: msg.id.substring(0, 8),
-                  });
-                  break;
-                case "user-list":
-                  users.value = msg.users;
-                  const othersCount = msg.users.filter(
-                    (u) => u !== clientId.value,
-                  ).length;
-                  notify({
-                    color: "info",
-                    message: "User list updated",
-                    caption:
-                      othersCount +
-                      " other" +
-                      (othersCount === 1 ? " user" : " users"),
-                  });
-                  break;
-                case "message":
-                  messages.value.push({
-                    ...msg,
-                    ts: new Date(),
-                    me: msg.from === clientId.value,
-                  });
-                  if (msg.from !== clientId.value) {
-                    markBackgroundActivity();
-                    notify({
-                      color: msg.isBroadcast ? "accent" : "info",
-                      message: msg.isBroadcast ? "Broadcast" : "Message",
-                      caption:
-                        (msg.from || "").substring(0, 8) +
-                        ": " +
-                        String(msg.payload).slice(0, 28),
-                    });
-                  }
-                  break;
-                case "message-history":
-                  msg.history.forEach((h) =>
-                    messages.value.push({
-                      from: h.senderId,
-                      payload: h.payload,
-                      isBroadcast: h.isBroadcast,
-                      ts: new Date(h.timestamp),
-                      me: h.senderId === clientId.value,
-                    }),
-                  );
-                  notify({
-                    color: "info",
-                    message: "History loaded",
-                    caption: msg.history.length + " messages",
-                  });
-                  break;
-                case "user-joined":
-                  notify({
-                    color: "positive",
-                    message: "User joined",
-                    caption: (msg.id || "").substring(0, 8),
-                  });
-                  break;
-                case "user-left":
-                  notify({
-                    color: "warning",
-                    message: "User left",
-                    caption: (msg.id || "").substring(0, 8),
-                  });
-                  break;
-                case "user-typing":
-                  typingUsers.value.add(msg.id);
-                  break;
-                case "user-stopped-typing":
-                  typingUsers.value.delete(msg.id);
-                  break;
-                case "joined-room":
-                  roomId.value = msg.roomId;
-                  roomPartner.value = msg.with;
-                  notify({
-                    color: "positive",
-                    message: "Room joined",
-                    caption: (msg.with || "").substring(0, 8),
-                  });
-                  break;
-                case "partner-left-room":
-                  roomId.value = null;
-                  roomPartner.value = null;
-                  notify({
-                    color: "warning",
-                    message: "Room closed",
-                    caption: "Partner left",
-                  });
-                  break;
-                case "error":
-                  notify({
-                    color: "negative",
-                    message: "Error",
-                    caption: msg.message || "Unknown",
-                  });
-                  break;
-              }
-            };
-            socket.value.onclose = () => {
-              connected.value = false;
-              notify({
-                color: "negative",
-                message: "Disconnected",
-                caption: "Socket closed",
-              });
-              scheduleReconnect();
-            };
-            socket.value.onerror = () =>
-              notify({ color: "warning", message: "Socket error" });
-          }
-          function sendMessage(broadcast = false) {
-            const text = input.value.trim();
-            if (!text) return;
-            if (broadcast) {
-              socket.value?.send(
-                JSON.stringify({ type: "broadcast", payload: text }),
-              );
-            } else if (roomId.value && roomPartner.value) {
-              socket.value?.send(
-                JSON.stringify({ type: "room-message", payload: text }),
-              );
-              messages.value.push({
-                type: "message",
-                from: clientId.value,
-                payload: text,
-                ts: new Date(),
-                me: true,
-              });
-            } else {
-              const dest = selectedUser.value;
-              if (dest) {
-                socket.value?.send(
-                  JSON.stringify({ type: "route", to: dest, payload: text }),
-                );
-                messages.value.push({
-                  type: "message",
-                  from: clientId.value,
-                  payload: text,
-                  ts: new Date(),
-                  me: true,
-                });
-              }
-            }
-            input.value = "";
-            socket.value?.send(JSON.stringify({ type: "stop-typing" }));
-          }
-          function chooseUser(u) {
-            selectedUser.value = u;
-          }
-          function loadHistory() {
-            socket.value?.send(JSON.stringify({ type: "get-history" }));
-            notify({ color: "info", message: "Requesting history..." });
-          }
-          function startRoom() {
-            if (!selectedUser.value) return;
-            socket.value?.send(
-              JSON.stringify({ type: "join-room", with: selectedUser.value }),
-            );
-            notify({
-              color: "info",
-              message: "Joining room",
-              caption: selectedUser.value.substring(0, 8),
-            });
-          }
-          function leaveRoom() {
-            roomId.value = null;
-            roomPartner.value = null;
-            notify({ color: "warning", message: "Left room" });
-          }
-          function handleTyping() {
-            socket.value?.send(JSON.stringify({ type: "start-typing" }));
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(
-              () => socket.value?.send(JSON.stringify({ type: "stop-typing" })),
-              1200,
-            );
-          }
-          const typingLabel = computed(() => {
-            const arr = Array.from(typingUsers.value).filter(
-              (id) => id !== clientId.value,
-            );
-            if (!arr.length) return "";
-            return (
-              (arr.length === 1 ? arr[0] : arr.length + " users") + " typing…"
-            );
-          });
-          onMounted(connect);
-          onMounted(() => {
-            // Page Visibility + focus events are used to clear background indicators.
-            const onVisible = () => {
-              if (!document.hidden) clearBackgroundActivity();
-            };
-            const onFocus = () => clearBackgroundActivity();
-            document.addEventListener("visibilitychange", onVisible);
-            window.addEventListener("focus", onFocus);
-            // Initialize visual indicators in a known state
-            updateTitleBadge();
-            updateFaviconBadge();
-          });
-          // Persist small UI state changes
-          try {
-            watch(notifyEnabled, (v) =>
-              window.uStore?.local.set("notifyEnabled", !!v),
-            );
-            watch(selectedUser, (v) =>
-              window.uStore?.local.set("selectedUser", v || ""),
-            );
-            watch(input, (v) =>
-              window.uStore?.local.set("inputDraft", v || ""),
-            );
-            watch(isDark, (v) => {
-              Quasar.Dark.set(v);
-              window.uStore?.local.set("themeDark", v);
-            });
-            watch(themeAuto, (v) => {
-              window.uStore?.local.set("themeAuto", v);
-              if (v) {
-                // Re-enable media query listener
-                if (!mediaQuery && typeof window.matchMedia === "function") {
-                  mediaQuery = window.matchMedia(
-                    "(prefers-color-scheme: dark)",
-                  );
-                }
-                if (mediaQuery) {
-                  if (!onMQChange) {
-                    onMQChange = () => {
-                      if (themeAuto.value) {
-                        Quasar.Dark.set(mediaQuery.matches);
-                        isDark.value = Quasar.Dark.isActive;
-                      }
-                    };
-                  }
-                  onMQChange();
-                  if (mediaQuery.addEventListener)
-                    mediaQuery.addEventListener("change", onMQChange);
-                  else if (mediaQuery.addListener)
-                    mediaQuery.addListener(onMQChange);
-                }
-              } else if (mediaQuery && onMQChange) {
-                if (mediaQuery.removeEventListener)
-                  mediaQuery.removeEventListener("change", onMQChange);
-                else if (mediaQuery.removeListener)
-                  mediaQuery.removeListener(onMQChange);
-              }
-            });
-          } catch {}
-          return {
-            connected,
-            clientId,
-            users,
-            messages,
-            input,
-            typingLabel,
-            sendMessage,
-            chooseUser,
-            selectedUser,
-
-            loadHistory,
-            startRoom,
-            leaveRoom,
-            handleTyping,
-            roomId,
-            roomPartner,
-            reconnecting,
-            retryAttempt,
-            nextRetryIn,
-            retryNow,
-            notifyEnabled,
-            colorFor,
-            isDark,
-            toggleDark: () => {
-              themeAuto.value = false; // manual override disables auto
-              isDark.value = !isDark.value;
-            },
-            themeAuto,
-            themeButtonLabel,
-            themeButtonIcon,
-            backgroundUnread,
-            hasBackgroundActivity,
-            canInstall: canInstallRef,
-            triggerInstall: async () => {
-              if (!deferredInstallPrompt) return;
-              try {
-                deferredInstallPrompt.prompt();
-                const choice = await deferredInstallPrompt.userChoice;
-                console.log("[PWA] userChoice", choice.outcome);
-              } catch (e) {
-                console.warn("[PWA] install prompt failed", e);
-              }
-              deferredInstallPrompt = null;
-              canInstallRef.value = false;
-            },
+          const fromPos = userPositions[anim.from] || {
+            x: centerX,
+            y: centerY,
           };
-        },
-        template: `<q-layout view="hHh lpR fFf">
-          <q-header elevated class="bg-primary text-white">
-            <q-toolbar>
-              <q-toolbar-title>Messaging Hub <span v-if=\"clientId\">- {{ clientId.substring(0,8) }}</span></q-toolbar-title>
-              <div v-if="hasBackgroundActivity" class="row items-center q-mr-sm" title="Background activity detected">
-                <span class="activity-dot q-mr-xs"></span>
-                <span class="text-caption">{{ backgroundUnread }}</span>
-              </div>
-              <q-btn dense flat icon="history" @click="loadHistory" label="History" />
-              <q-btn dense flat icon="campaign" @click="sendMessage(true)" label="Broadcast" />
-              <q-btn dense flat :icon="themeButtonIcon" @click="toggleDark" :label="themeButtonLabel" />
-              <q-btn v-if="canInstall" dense flat icon="download" @click="triggerInstall" label="Install" />
-              <q-space />
-              <q-btn dense flat round icon="settings">
-                <q-menu anchor="bottom right" self="top right">
-                  <q-list dense style="min-width:220px;">
-                    <q-item>
-                      <q-item-section>Enable notifications</q-item-section>
-                      <q-item-section side>
-                        <q-toggle v-model="notifyEnabled" :label="notifyEnabled ? 'On' : 'Off'" left-label />
-                      </q-item-section>
-                    </q-item>
-                     <q-item>
-                       <q-item-section>Auto theme</q-item-section>
-                       <q-item-section side>
-                         <q-toggle v-model="themeAuto" :label="themeAuto ? 'System' : 'Manual'" left-label />
-                       </q-item-section>
-                     </q-item>
-                  </q-list>
-                </q-menu>
-              </q-btn>
-            </q-toolbar>
-            <div class="q-pa-sm q-pt-none">
-              <q-banner v-if="reconnecting" dense class="bg-warning text-dark">
-                Reconnecting in {{ nextRetryIn }}s… (attempt {{ retryAttempt }})
-                <template v-slot:action>
-                  <q-btn flat color="dark" label="Retry now" @click="retryNow" />
-                </template>
-              </q-banner>
-            </div>
-          </q-header>
-          <q-page-container>
-            <q-page class="row no-wrap">
-              <div class="column col-auto q-pa-sm" style="width:260px;max-width:100%;">
-                <q-card flat bordered class="full-height">
-                  <q-card-section class="q-pb-xs"><div class="text-caption text-grey">Users Online</div></q-card-section>
-                  <q-list dense bordered separator style="max-height:40vh;overflow:auto;">
-                    <q-item v-for="u in users" :key="u" clickable @click="u!==clientId && chooseUser(u)" :active="selectedUser===u" :disable="u===clientId" active-class="bg-primary text-white">
-                      <q-item-section>
-                        <span :class="u===clientId ? 'text-primary' : ('text-' + colorFor(u))">{{ u.substring(0,8) }}</span>
-                        <span v-if="u===clientId" class="text-primary text-caption"> (you)</span>
-                      </q-item-section>
-                    </q-item>
-                    <q-item v-if="!users.length"><q-item-section class="text-grey">No users</q-item-section></q-item>
-                  </q-list>
-                  <q-separator />
-                  <q-card-section>
-                    <div class="text-caption">Room</div>
-                    <div v-if="roomId" class="q-mt-xs">
-                      <span class="text-primary q-mr-sm">{{ roomId }}</span>
-                      <span class="text-secondary">with {{ roomPartner?.substring(0,8) }}</span>
-                    </div>
-                    <div class="q-mt-sm flex">
-                      <q-btn size="sm" color="primary" :disable="!selectedUser" label="Start" @click="startRoom" class="q-mr-xs" />
-                      <q-btn size="sm" flat color="negative" :disable="!roomId" label="Leave" @click="leaveRoom" />
-                    </div>
-                  </q-card-section>
-                </q-card>
-              </div>
-              <div class="column col q-pa-sm">
-                <q-card flat bordered class="column full-height">
-                  <q-card-section class="col scroll" style="overflow:auto;display:flex;flex-direction:column;gap:8px;">
-                    <div v-for="m in messages" :key="m.ts.getTime()+m.payload" class="message-item" :class="{ me:m.me, broadcast:m.isBroadcast }">
-                      <q-chat-message :sent="m.me" :text="[m.payload]" :bg-color="m.isBroadcast ? 'accent' : (m.me ? 'primary' : 'secondary')" text-color="white" :stamp="m.ts.toLocaleTimeString()" :name="m.me ? 'You' : m.from.substring(0,8)">
-                        <template v-slot:avatar>
-                          <q-avatar :color="m.isBroadcast ? 'accent' : (m.me ? 'primary' : colorFor(m.from))" text-color="white" size="32px">{{ m.isBroadcast ? '★' : m.me ? 'Y' : m.from.substring(0,2) }}</q-avatar>
-                        </template>
-                      </q-chat-message>
-                    </div>
-                  </q-card-section>
-                  <q-separator />
-                  <q-card-section>
-                    <q-input dense outlined v-model="input" placeholder="Type a message" @keyup="handleTyping" @keyup.enter="sendMessage(false)" />
-                    <div class="row items-center q-gutter-sm q-mt-sm">
-                      <q-btn color="primary" label="Send" @click="sendMessage(false)" :disable="!input.trim()" />
-                      <q-btn flat color="accent" label="Broadcast" @click="sendMessage(true)" :disable="!input.trim()" />
-                      <q-btn flat color="secondary" label="History" @click="loadHistory" />
-                      <span v-if="typingLabel" class="text-warning q-ml-auto">{{ typingLabel }}</span>
-                    </div>
-                  </q-card-section>
-                </q-card>
-              </div>
-            </q-page>
-          </q-page-container>
-        </q-layout>`,
-      });
-      app.use(Quasar);
-      app.mount("#q-app");
-      // Register Service Worker for PWA
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js").catch((err) => {
-            console.warn("SW registration failed", err);
-          });
+          const toPos = userPositions[anim.to] || { x: centerX, y: centerY };
+          const x = lerp(fromPos.x, toPos.x, anim.progress);
+          const y = lerp(fromPos.y, toPos.y, anim.progress);
+
+          fill(anim.broadcast ? "yellow" : "red");
+          ellipse(x, y, 10, 10);
         });
       }
-      // Persist notification preference
-      try {
-        const appVm = document.getElementById("q-app");
-      } catch {}
+
+      function mousePressed() {
+        // Find clicked user
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = min(width, height) / 4;
+        const angleStep = TWO_PI / users.length;
+        users.forEach((user, i) => {
+          const angle = i * angleStep;
+          const x = centerX + cos(angle) * radius;
+          const y = centerY + sin(angle) * radius;
+          const d = dist(mouseX, mouseY, x, y);
+          if (d < 20) {
+            // within circle
+            selectedUser = user;
+            sendMessage(false);
+          }
+        });
+      }
+
+      // WebSocket functions (adapted from original)
+      function clearReconnectTimers() {
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
+        if (countdownTimer) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+        }
+      }
+
+      function scheduleReconnect() {
+        if (reconnectTimer) return;
+        reconnecting = true;
+        const delays = [1000, 2000, 5000, 10000, 20000, 30000];
+        const idx = Math.min(retryAttempt, delays.length - 1);
+        const delay = delays[idx];
+        nextRetryIn = Math.ceil(delay / 1000);
+        clearReconnectTimers();
+        countdownTimer = setInterval(() => {
+          if (nextRetryIn > 0) nextRetryIn -= 1;
+        }, 1000);
+        reconnectTimer = setTimeout(() => {
+          reconnectTimer = null;
+          connect();
+        }, delay);
+        retryAttempt += 1;
+      }
+
+      function connect() {
+        socket = new WebSocket(WS_URL);
+        socket.onopen = () => {
+          connected = true;
+          reconnecting = false;
+          clearReconnectTimers();
+          console.log("Connected");
+          retryAttempt = 0;
+        };
+        socket.onmessage = (ev) => {
+          const msg = JSON.parse(ev.data);
+          switch (msg.type) {
+            case "register-success":
+              clientId = msg.id;
+              console.log("Registered as", clientId);
+              break;
+            case "user-list":
+              users = msg.users;
+              console.log("Users:", users);
+              break;
+            case "message":
+              messages.push({
+                ...msg,
+                ts: new Date(),
+                me: msg.from === clientId,
+              });
+              // Add animation
+              messageAnimations.push({
+                from: msg.from,
+                to: msg.to || (msg.isBroadcast ? null : clientId),
+                broadcast: msg.isBroadcast,
+                progress: 0,
+              });
+              break;
+            case "message-history":
+              msg.history.forEach((h) =>
+                messages.push({
+                  from: h.senderId,
+                  payload: h.payload,
+                  isBroadcast: h.isBroadcast,
+                  ts: new Date(h.timestamp),
+                  me: h.senderId === clientId,
+                }),
+              );
+              break;
+            case "user-joined":
+              console.log("User joined", msg.id);
+              break;
+            case "user-left":
+              console.log("User left", msg.id);
+              break;
+            case "error":
+              console.error("Error", msg.message);
+              break;
+          }
+        };
+        socket.onclose = () => {
+          connected = false;
+          console.log("Disconnected");
+          scheduleReconnect();
+        };
+        socket.onerror = () => console.error("Socket error");
+      }
+
+      function sendMessage(broadcast = false) {
+        const text = "Hello!";
+        if (broadcast) {
+          socket?.send(JSON.stringify({ type: "broadcast", payload: text }));
+        } else {
+          const dest = selectedUser;
+          if (dest) {
+            socket?.send(
+              JSON.stringify({ type: "route", to: dest, payload: text }),
+            );
+          }
+        }
+      }
+
+      // Start connection
+      connect();
     </script>
   </body>
 </html>
