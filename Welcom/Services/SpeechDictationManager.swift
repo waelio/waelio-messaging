@@ -103,27 +103,29 @@ final class SpeechDictationManager: ObservableObject {
             self.isRecording = true
 
             self.recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self] result, error in
-                guard let self else { return }
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
 
-                if let result {
-                    let spoken = result.bestTranscription.formattedString.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let combined = self.baseText.isEmpty
-                        ? spoken
-                        : (spoken.isEmpty ? self.baseText : "\(self.baseText) \(spoken)")
+                    if let result {
+                        let spoken = result.bestTranscription.formattedString.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let combined = self.baseText.isEmpty
+                            ? spoken
+                            : (spoken.isEmpty ? self.baseText : "\(self.baseText) \(spoken)")
 
-                    if !combined.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        self.lastStableText = combined
-                        onUpdate(combined)
+                        if !combined.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            self.lastStableText = combined
+                            onUpdate(combined)
+                        }
+
+                        if result.isFinal {
+                            self.stopDictation()
+                        }
                     }
 
-                    if result.isFinal {
+                    if let error {
+                        self.errorMessage = "Dictation error: \(error.localizedDescription)"
                         self.stopDictation()
                     }
-                }
-
-                if let error {
-                    self.errorMessage = "Dictation error: \(error.localizedDescription)"
-                    self.stopDictation()
                 }
             }
         }
