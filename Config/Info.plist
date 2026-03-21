@@ -60,6 +60,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>We need camera access to scan QR codes for joining negotiation sessions</string>
+	<key>NSContactsUsageDescription</key>
+	<string>We use contacts to suggest names quickly when starting a conversation.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
