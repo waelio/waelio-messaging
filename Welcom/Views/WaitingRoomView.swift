@@ -186,7 +186,7 @@ struct WaitingRoomView: View {
 
     private func shareQueryItems(for code: String) -> [URLQueryItem] {
         let senderId = sessionViewModel.currentUserId
-        let senderName = sessionViewModel.currentUserName
+        let senderName = sessionViewModel.currentUserName.trimmingCharacters(in: .whitespacesAndNewlines)
         let receiverId = sessionViewModel.session?.partyBId.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         var items: [URLQueryItem] = [
