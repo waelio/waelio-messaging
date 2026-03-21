@@ -1,18 +1,24 @@
 import SwiftUI
 import CoreNFC
 import Contacts
-import Combine
+import ContactsUI
 
 struct CreateSessionView: View {
+    private enum Field: Hashable {
+        case userName
+    }
+
     @Environment(\.dismiss) var dismiss
     @StateObject private var nfcManager = NFCSessionManager()
-    @StateObject private var contactSuggestions = ContactSuggestionsStore()
     @State private var sessionTitle: String = ""
     @State private var userName: String = ""
     @State private var maxTurns: Int = 10
     @State private var turnDuration: TimeInterval = 120
     @State private var createdSession: Session?
     @State private var showingSession = false
+    @State private var showingContactPicker = false
+    @State private var showContactsDeniedAlert = false
+    @FocusState private var focusedField: Field?
     
     var body: some View {
         NavigationView {
@@ -20,30 +26,20 @@ struct CreateSessionView: View {
                 Section("Conversation Setup") {
                     TextField("Topic (e.g., Family Discussion)", text: $sessionTitle)
                     TextField("Your Name", text: $userName)
+                        .focused($focusedField, equals: .userName)
+                        .textInputAutocapitalization(.words)
 
-                    if !filteredContactNames.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Suggested from Contacts")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-
-                            ForEach(filteredContactNames, id: \.self) { name in
-                                Button {
-                                    userName = name
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "person.crop.circle")
-                                            .foregroundColor(.blue)
-                                        Text(name)
-                                            .foregroundColor(.primary)
-                                        Spacer()
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
+                    Button {
+                        openContactPicker()
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "person.crop.circle.badge.plus")
+                                .foregroundColor(.blue)
+                            Text("Choose from Contacts")
+                            Spacer()
                         }
-                        .padding(.top, 4)
                     }
+                    .buttonStyle(.plain)
                     
                     Picker("Number of Turns", selection: $maxTurns) {
                         ForEach([5, 10, 15, 20], id: \.self) { turns in
@@ -89,15 +85,22 @@ struct CreateSessionView: View {
             }
             .navigationTitle("Start a Conversation")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                contactSuggestions.requestAccessIfNeeded()
-            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
                 }
+            }
+            .sheet(isPresented: $showingContactPicker) {
+                ContactPickerView { selectedName in
+                    applySelectedContactName(selectedName)
+                }
+            }
+            .alert("Contacts Access Needed", isPresented: $showContactsDeniedAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Allow Contacts access in Settings to quickly fill your name.")
             }
             .fullScreenCover(isPresented: $showingSession) {
                 if let session = createdSession {
@@ -140,72 +143,65 @@ struct CreateSessionView: View {
         return String((0..<6).map { _ in letters.randomElement()! })
     }
 
-    private var filteredContactNames: [String] {
-        let typed = userName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if typed.isEmpty {
-            return Array(contactSuggestions.names.prefix(4))
-        }
-
-        return contactSuggestions.names
-            .filter { $0.localizedCaseInsensitiveContains(typed) }
-            .prefix(6)
-            .map { $0 }
+    private func applySelectedContactName(_ name: String) {
+        focusedField = nil
+        userName = name
     }
-}
 
-final class ContactSuggestionsStore: ObservableObject {
-    @Published var names: [String] = []
-
-    private let store = CNContactStore()
-    private var hasRequested = false
-
-    func requestAccessIfNeeded() {
-        guard !hasRequested else { return }
-        hasRequested = true
+    private func openContactPicker() {
+        focusedField = nil
 
         let status = CNContactStore.authorizationStatus(for: .contacts)
         switch status {
-        case .authorized:
-            fetchNames()
+        case .authorized, .limited:
+            showingContactPicker = true
         case .notDetermined:
-            store.requestAccess(for: .contacts) { [weak self] granted, _ in
-                if granted {
-                    self?.fetchNames()
+            CNContactStore().requestAccess(for: .contacts) { granted, _ in
+                DispatchQueue.main.async {
+                    if granted {
+                        showingContactPicker = true
+                    } else {
+                        showContactsDeniedAlert = true
+                    }
                 }
             }
         case .denied, .restricted:
-            break
+            showContactsDeniedAlert = true
         @unknown default:
-            break
+            showContactsDeniedAlert = true
         }
     }
+}
 
-    private func fetchNames() {
-        let keys: [CNKeyDescriptor] = [
-            CNContactGivenNameKey as CNKeyDescriptor,
-            CNContactFamilyNameKey as CNKeyDescriptor,
-            CNContactNicknameKey as CNKeyDescriptor
-        ]
+private struct ContactPickerView: UIViewControllerRepresentable {
+    let onSelect: (String) -> Void
 
-        let request = CNContactFetchRequest(keysToFetch: keys)
-        var found: [String] = []
+    func makeUIViewController(context: Context) -> CNContactPickerViewController {
+        let controller = CNContactPickerViewController()
+        controller.delegate = context.coordinator
+        controller.predicateForSelectionOfContact = NSPredicate(value: true)
+        controller.displayedPropertyKeys = [CNContactGivenNameKey, CNContactFamilyNameKey, CNContactNicknameKey]
+        return controller
+    }
 
-        do {
-            try store.enumerateContacts(with: request) { contact, _ in
-                let fullName = "\(contact.givenName) \(contact.familyName)".trimmingCharacters(in: .whitespaces)
-                let candidate = fullName.isEmpty ? contact.nickname.trimmingCharacters(in: .whitespaces) : fullName
-                if !candidate.isEmpty {
-                    found.append(candidate)
-                }
-            }
+    func updateUIViewController(_ uiViewController: CNContactPickerViewController, context: Context) {}
 
-            let deduped = Array(Set(found)).sorted()
-            DispatchQueue.main.async {
-                self.names = deduped
-            }
-        } catch {
-            DispatchQueue.main.async {
-                self.names = []
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onSelect: onSelect)
+    }
+
+    final class Coordinator: NSObject, CNContactPickerDelegate {
+        let onSelect: (String) -> Void
+
+        init(onSelect: @escaping (String) -> Void) {
+            self.onSelect = onSelect
+        }
+
+        func contactPicker(_ picker: CNContactPickerViewController, didSelect contact: CNContact) {
+            let fullName = "\(contact.givenName) \(contact.familyName)".trimmingCharacters(in: .whitespaces)
+            let resolvedName = fullName.isEmpty ? contact.nickname.trimmingCharacters(in: .whitespaces) : fullName
+            if !resolvedName.isEmpty {
+                onSelect(resolvedName)
             }
         }
     }
