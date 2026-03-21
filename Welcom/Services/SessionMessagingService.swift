@@ -37,6 +37,7 @@ class SessionMessagingService: ObservableObject {
         
         // Listen for incoming messages
         webSocket.$receivedMessages
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] messages in
                 guard let self = self, let lastMessage = messages.last else { return }
                 self.handleIncomingMessage(lastMessage)

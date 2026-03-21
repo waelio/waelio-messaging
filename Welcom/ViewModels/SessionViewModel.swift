@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 class SessionViewModel: ObservableObject {
     enum SyncConnectionState: Equatable {
         case offline
@@ -328,12 +329,14 @@ class SessionViewModel: ObservableObject {
 
         webSocketService.$error
             .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] message in
                 self?.errorMessage = message
             }
             .store(in: &cancellables)
 
         webSocketService.$isConnected
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] isConnected in
                 guard let self = self else { return }
                 if isConnected {
@@ -351,6 +354,7 @@ class SessionViewModel: ObservableObject {
 
         sessionMessaging?.$participantJoinedEvent
             .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] joinEvent in
                 self?.handleParticipantJoined(joinEvent)
             }
@@ -358,6 +362,7 @@ class SessionViewModel: ObservableObject {
 
         sessionMessaging?.$sessionState
             .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
                 self?.applyRemoteSessionState(state)
             }
@@ -365,6 +370,7 @@ class SessionViewModel: ObservableObject {
 
         sessionMessaging?.$requestEvent
             .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
                 self?.handleRequestEvent(event)
             }
