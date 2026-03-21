@@ -6,6 +6,7 @@ struct SessionView: View {
     @StateObject private var noteDictation = SpeechDictationManager()
     @State private var showingExportSheet = false
     @State private var showingModificationSheet = false
+    @State private var showNoteSavedToast = false
     @State private var exportedLogURL: URL?
     
     var body: some View {
@@ -69,6 +70,30 @@ struct SessionView: View {
                     session: session,
                     userId: sessionViewModel.currentUserId
                 )
+            }
+        }
+        .overlay(alignment: .top) {
+            if showNoteSavedToast {
+                Label("Dictation saved", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .foregroundColor(.white)
+                    .background(.green.opacity(0.9), in: Capsule())
+                    .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .onChange(of: noteDictation.lastSavedAt) { _ in
+            guard noteDictation.lastSavedAt != nil else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showNoteSavedToast = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showNoteSavedToast = false
+                }
             }
         }
     }

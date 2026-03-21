@@ -61,13 +61,6 @@ struct CreateSessionView: View {
                                 .font(.caption2)
                                 .foregroundColor(.red)
                         }
-
-                        if showBriefSavedToast {
-                            Label("Dictation saved", systemImage: "checkmark.circle.fill")
-                                .font(.caption)
-                                .foregroundColor(.green)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
                     }
 
                     TextField("Your Name", text: $userName)
@@ -157,6 +150,19 @@ struct CreateSessionView: View {
                             isHost: true
                         ))
                     }
+                }
+            }
+            .overlay(alignment: .top) {
+                if showBriefSavedToast {
+                    Label("Dictation saved", systemImage: "checkmark.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .foregroundColor(.white)
+                        .background(.green.opacity(0.9), in: Capsule())
+                        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
             .onChange(of: briefDictation.lastSavedAt) { _ in
