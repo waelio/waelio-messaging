@@ -65,10 +65,11 @@ struct JoinSessionView: View {
                     }
                 }
 
+#if DEBUG
                 if showParseDebugInfo,
                    let parseInfo = initialParseDebugInfo,
                    !parseInfo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Section("Invite Parse Details") {
+                    Section("Invite Debug Details") {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(parseInfo)
                                 .font(.caption2)
@@ -87,6 +88,7 @@ struct JoinSessionView: View {
                         }
                     }
                 }
+#endif
 
                 Section("Your Details") {
                     TextField("Your Name", text: $userName)
@@ -99,7 +101,7 @@ struct JoinSessionView: View {
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
                             .onChange(of: sessionCode) { oldValue, newValue in
-                                sessionCode = newValue.uppercased()
+                                sessionCode = sanitizedSessionCode(from: newValue)
                             }
                         
                         if isNFCEnabled {
@@ -226,12 +228,12 @@ struct JoinSessionView: View {
             }
             .onChange(of: nfcManager.sessionCode) { oldValue, newValue in
                 if let code = newValue {
-                    sessionCode = code
+                    sessionCode = sanitizedSessionCode(from: code)
                 }
             }
             .onChange(of: scannedCode) { oldValue, newValue in
                 if let code = newValue {
-                    sessionCode = code
+                    sessionCode = sanitizedSessionCode(from: code)
                 }
             }
             .sheet(isPresented: $showingQRScanner) {
@@ -283,6 +285,11 @@ struct JoinSessionView: View {
             isJoining = false
             showingSession = true
         }
+    }
+
+    private func sanitizedSessionCode(from value: String) -> String {
+        let allowedCharacters = value.uppercased().filter { $0.isLetter || $0.isNumber }
+        return String(allowedCharacters.prefix(6))
     }
 }
 

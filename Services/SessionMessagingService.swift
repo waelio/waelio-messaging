@@ -29,6 +29,12 @@ class SessionMessagingService: ObservableObject {
             let currentTurnNumber: Int
             let timeRemaining: Double
             let status: String
+            let title: String?
+            let conversationBrief: String?
+            let turnDuration: Double?
+            let maxTurns: Int?
+            let partyAId: String?
+            let partyBId: String?
         }
     }
     
@@ -69,13 +75,25 @@ class SessionMessagingService: ObservableObject {
         currentTurn: String,
         currentTurnNumber: Int,
         timeRemaining: Double,
-        status: String
+        status: String,
+        title: String,
+        conversationBrief: String?,
+        turnDuration: Double,
+        maxTurns: Int,
+        partyAId: String,
+        partyBId: String
     ) {
         let sessionData = SessionSyncMessage.SessionData(
             currentTurn: currentTurn,
             currentTurnNumber: currentTurnNumber,
             timeRemaining: timeRemaining,
-            status: status
+            status: status,
+            title: title,
+            conversationBrief: conversationBrief,
+            turnDuration: turnDuration,
+            maxTurns: maxTurns,
+            partyAId: partyAId,
+            partyBId: partyBId
         )
         
         let message = SessionSyncMessage(

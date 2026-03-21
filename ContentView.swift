@@ -109,7 +109,7 @@ struct ContentView: View {
                 .offset(y: animateIn ? 0 : 10)
                 .animation(.easeOut(duration: 0.45).delay(0.35), value: animateIn)
             }
-            .navigationTitle("Welcom")
+            .navigationTitle("WelcomTalk")
             .onAppear {
                 animateIn = true
             }

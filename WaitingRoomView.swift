@@ -1,5 +1,4 @@
 import SwiftUI
-import CoreNFC
 
 struct WaitingRoomView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
@@ -64,7 +63,7 @@ struct WaitingRoomView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
                 
-                if NFCNDEFReaderSession.readingAvailable {
+                if NFCSessionManager.isSupported {
                     Button(action: {
                         if let code = sessionViewModel.session?.sessionCode {
                             nfcManager.startWriting(code: code)

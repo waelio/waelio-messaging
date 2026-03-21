@@ -415,6 +415,26 @@ class SessionViewModel: ObservableObject {
         localSession.currentTurnNumber = remote.currentTurnNumber
         localSession.status = Session.SessionStatus(rawValue: remote.status) ?? localSession.status
         localSession.turnStartedAt = Date()
+        if let title = remote.title, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            localSession.title = title
+        }
+        localSession.conversationBrief = remote.conversationBrief
+
+        if let turnDuration = remote.turnDuration, turnDuration > 0 {
+            localSession.turnDuration = turnDuration
+        }
+
+        if let maxTurns = remote.maxTurns, maxTurns > 0 {
+            localSession.maxTurns = maxTurns
+        }
+
+        if let partyAId = remote.partyAId {
+            localSession.partyAId = partyAId
+        }
+
+        if let partyBId = remote.partyBId {
+            localSession.partyBId = partyBId
+        }
 
         if localSession.partyAId.isEmpty {
             localSession.partyAId = state.userId
@@ -495,7 +515,13 @@ class SessionViewModel: ObservableObject {
             currentTurn: session.currentTurn.rawValue,
             currentTurnNumber: session.currentTurnNumber,
             timeRemaining: timeRemaining,
-            status: session.status.rawValue
+            status: session.status.rawValue,
+            title: session.title,
+            conversationBrief: session.conversationBrief,
+            turnDuration: session.turnDuration,
+            maxTurns: session.maxTurns,
+            partyAId: session.partyAId,
+            partyBId: session.partyBId
         )
     }
     
