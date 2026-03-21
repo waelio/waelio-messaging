@@ -329,50 +329,55 @@ class SessionViewModel: ObservableObject {
 
         webSocketService.$error
             .compactMap { $0 }
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] message in
-                self?.errorMessage = message
+                Task { @MainActor in
+                    self?.errorMessage = message
+                }
             }
             .store(in: &cancellables)
 
         webSocketService.$isConnected
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] isConnected in
-                guard let self = self else { return }
-                if isConnected {
-                    self.syncConnectionState = .connected
-                    self.lastSyncAt = Date()
-                    self.sessionMessaging?.announceSession(userId: self.currentUserId, userName: self.userName)
-                    if self.isHost {
-                        self.broadcastCurrentSessionState()
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    if isConnected {
+                        self.syncConnectionState = .connected
+                        self.lastSyncAt = Date()
+                        self.sessionMessaging?.announceSession(userId: self.currentUserId, userName: self.userName)
+                        if self.isHost {
+                            self.broadcastCurrentSessionState()
+                        }
+                    } else {
+                        self.syncConnectionState = (self.syncConnectionState == .connected) ? .reconnecting : .connecting
                     }
-                } else {
-                    self.syncConnectionState = (self.syncConnectionState == .connected) ? .reconnecting : .connecting
                 }
             }
             .store(in: &cancellables)
 
         sessionMessaging?.$participantJoinedEvent
             .compactMap { $0 }
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] joinEvent in
-                self?.handleParticipantJoined(joinEvent)
+                Task { @MainActor in
+                    self?.handleParticipantJoined(joinEvent)
+                }
             }
             .store(in: &cancellables)
 
         sessionMessaging?.$sessionState
             .compactMap { $0 }
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
-                self?.applyRemoteSessionState(state)
+                Task { @MainActor in
+                    self?.applyRemoteSessionState(state)
+                }
             }
             .store(in: &cancellables)
 
         sessionMessaging?.$requestEvent
             .compactMap { $0 }
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
-                self?.handleRequestEvent(event)
+                Task { @MainActor in
+                    self?.handleRequestEvent(event)
+                }
             }
             .store(in: &cancellables)
 

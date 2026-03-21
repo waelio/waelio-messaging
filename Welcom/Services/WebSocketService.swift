@@ -44,7 +44,7 @@ class WebSocketService: NSObject, ObservableObject {
         super.init()
         
         let configuration = URLSessionConfiguration.default
-        session = URLSession(configuration: configuration, delegate: self, delegateQueue: OperationQueue())
+        session = URLSession(configuration: configuration, delegate: self, delegateQueue: .main)
     }
 
     private static func defaultServerURL() -> String {
@@ -109,7 +109,7 @@ class WebSocketService: NSObject, ObservableObject {
         let wsMessage = URLSessionWebSocketTask.Message.string(jsonString)
         webSocketTask?.send(wsMessage) { [weak self] error in
             if let error = error {
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self?.error = "Send error: \(error.localizedDescription)"
                 }
             }
@@ -139,7 +139,7 @@ class WebSocketService: NSObject, ObservableObject {
                 self.receiveMessage()
                 
             case .failure(let error):
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self.error = "Receive error: \(error.localizedDescription)"
                     self.isConnected = false
                 }
@@ -169,7 +169,7 @@ class WebSocketService: NSObject, ObservableObject {
         
         // Try to parse as a message
         if let message = try? JSONDecoder().decode(Message.self, from: data) {
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.receivedMessages.append(message)
             }
             return
@@ -180,7 +180,7 @@ class WebSocketService: NSObject, ObservableObject {
            let type = json["type"] as? String,
            type == "users",
            let users = json["users"] as? [String] {
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.onlineUsers = users
             }
         }
@@ -195,18 +195,14 @@ class WebSocketService: NSObject, ObservableObject {
 
 extension WebSocketService: URLSessionWebSocketDelegate {
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
-        DispatchQueue.main.async {
-            self.isConnected = true
-            self.error = nil
-            self.reconnectAttempt = 0
-            self.sendJoin()
-        }
+        self.isConnected = true
+        self.error = nil
+        self.reconnectAttempt = 0
+        self.sendJoin()
     }
     
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
-        DispatchQueue.main.async {
-            self.isConnected = false
-        }
+        self.isConnected = false
         scheduleReconnectIfNeeded()
     }
 }
