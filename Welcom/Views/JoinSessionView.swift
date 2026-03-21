@@ -13,6 +13,13 @@ struct JoinSessionView: View {
     @State private var showingQRScanner = false
     @State private var scannedCode: String?
     
+    private let initialSessionCode: String?
+    
+    init(initialSessionCode: String? = nil) {
+        self.initialSessionCode = initialSessionCode
+        _sessionCode = State(initialValue: initialSessionCode ?? "")
+    }
+    
     var body: some View {
         NavigationView {
             Form {

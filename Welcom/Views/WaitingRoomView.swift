@@ -132,9 +132,12 @@ struct WaitingRoomView: View {
             if let code = sessionViewModel.session?.sessionCode {
                 ShareSheet(items: [
                     """
-                    Join my Welcom conversation with code: \(code)
+                    Join my Welcom conversation!
                     
-                    Enter this code in the Welcom app to join our safe, turn-based conversation.
+                    📱 App users: welcom://join/\(code)
+                    🌐 Web link: https://waelio-messaging.onrender.com/?code=\(code)
+                    
+                    Or enter the code manually: \(code)
                     
                     Don't have the app? Get it here:
                     https://github.com/waelio/welcom
