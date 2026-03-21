@@ -11,6 +11,7 @@ import SwiftUI
 struct WelcomApp: App {
     @State private var pendingSessionCode: String?
     @State private var pendingSenderName: String?
+    @State private var pendingJoinMessage: String?
     @State private var showJoinSession = false
     
     var body: some Scene {
@@ -20,9 +21,11 @@ struct WelcomApp: App {
                     handleIncomingURL(url)
                 }
                 .sheet(isPresented: $showJoinSession) {
-                    if let code = pendingSessionCode {
-                        JoinSessionView(initialSessionCode: code, initialSenderName: pendingSenderName)
-                    }
+                    JoinSessionView(
+                        initialSessionCode: pendingSessionCode,
+                        initialSenderName: pendingSenderName,
+                        initialLinkMessage: pendingJoinMessage
+                    )
                 }
         }
     }
@@ -34,9 +37,15 @@ struct WelcomApp: App {
         // - welcom://join/SESSIONCODE
         // - welcom://join/SESSIONCODE?sender=...&receiver=...
         // - https://waelio-messaging.onrender.com/messaging?code=SESSIONCODE&sender=...&receiver=...
+        pendingSenderName = components.queryItems?.first(where: { $0.name == "senderName" })?.value
+
         if let code = extractSessionCode(from: url, components: components), !code.isEmpty {
             pendingSessionCode = code.uppercased()
-            pendingSenderName = components.queryItems?.first(where: { $0.name == "senderName" })?.value
+            pendingJoinMessage = nil
+            showJoinSession = true
+        } else {
+            pendingSessionCode = nil
+            pendingJoinMessage = "This invite link is missing a session code. Ask the sender to share the invitation again."
             showJoinSession = true
         }
     }

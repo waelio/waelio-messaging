@@ -17,10 +17,12 @@ struct JoinSessionView: View {
     
     private let initialSessionCode: String?
     private let initialSenderName: String?
+    private let initialLinkMessage: String?
     
-    init(initialSessionCode: String? = nil, initialSenderName: String? = nil) {
+    init(initialSessionCode: String? = nil, initialSenderName: String? = nil, initialLinkMessage: String? = nil) {
         self.initialSessionCode = initialSessionCode
         self.initialSenderName = initialSenderName
+        self.initialLinkMessage = initialLinkMessage
         _sessionCode = State(initialValue: initialSessionCode ?? "")
     }
 
@@ -31,6 +33,19 @@ struct JoinSessionView: View {
     var body: some View {
         NavigationView {
             Form {
+                if let linkMessage = initialLinkMessage,
+                   !linkMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Section {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(linkMessage)
+                                .font(.caption)
+                                .foregroundColor(.primary)
+                        }
+                    }
+                }
+
                 if let senderName = initialSenderName,
                    !senderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Section {

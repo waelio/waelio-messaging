@@ -188,7 +188,7 @@ private struct ContactPickerView: UIViewControllerRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onSelect: onSelect)
-    }
+    }       
 
     final class Coordinator: NSObject, CNContactPickerDelegate {
         let onSelect: (String) -> Void
