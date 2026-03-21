@@ -3,6 +3,7 @@ import Foundation
 struct Session: Identifiable, Codable {
     let id: String
     var title: String
+    var conversationBrief: String?
     var sessionCode: String
     var status: SessionStatus
     var currentTurn: TurnParty
@@ -35,6 +36,7 @@ struct Session: Identifiable, Codable {
     
     init(id: String = UUID().uuidString,
          title: String,
+            conversationBrief: String? = nil,
          sessionCode: String,
          status: SessionStatus = .waiting,
          currentTurn: TurnParty = .partyA,
@@ -47,6 +49,7 @@ struct Session: Identifiable, Codable {
          turnStartedAt: Date? = nil) {
         self.id = id
         self.title = title
+        self.conversationBrief = conversationBrief
         self.sessionCode = sessionCode
         self.status = status
         self.currentTurn = currentTurn

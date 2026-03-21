@@ -62,6 +62,10 @@
 	<string>We need camera access to scan QR codes for joining negotiation sessions</string>
 	<key>NSContactsUsageDescription</key>
 	<string>We use contacts to suggest names quickly when starting a conversation.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We use the microphone so you can dictate conversation briefs and private notes.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>We use speech recognition to convert your voice into text for briefs and notes.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

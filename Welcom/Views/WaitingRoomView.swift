@@ -152,15 +152,17 @@ struct WaitingRoomView: View {
             if let code = sessionViewModel.session?.sessionCode {
                 ShareSheet(items: [
                     """
-                    Join my Welcom conversation!
-                    
-                    📱 App users: \(appJoinLink(for: code))
-                    🌐 Intermediary link: \(webJoinLink(for: code))
-                    
-                    Or enter the code manually: \(code)
-                    
-                    Don't have the app? Get it here:
-                    https://github.com/waelio/welcom
+                    Join my Welcom conversation 👋
+
+                    Open in browser:
+                    \(webJoinLink(for: code))
+
+                    Then tap “Open in App”.
+
+                    Direct app link:
+                    \(appJoinLink(for: code))
+
+                    Code: \(code)
                     """
                 ])
             }
@@ -197,14 +199,19 @@ struct WaitingRoomView: View {
     private func shareQueryItems(for code: String) -> [URLQueryItem] {
         let senderId = sessionViewModel.currentUserId
         let senderName = sessionViewModel.currentUserName
-        let receiverId = sessionViewModel.session?.partyBId ?? ""
+        let receiverId = sessionViewModel.session?.partyBId.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
-        return [
+        var items: [URLQueryItem] = [
             URLQueryItem(name: "code", value: code),
             URLQueryItem(name: "sender", value: senderId),
-            URLQueryItem(name: "senderName", value: senderName),
-            URLQueryItem(name: "receiver", value: receiverId)
+            URLQueryItem(name: "senderName", value: senderName)
         ]
+
+        if !receiverId.isEmpty {
+            items.append(URLQueryItem(name: "receiver", value: receiverId))
+        }
+
+        return items
     }
 }
 
@@ -239,8 +246,8 @@ struct DetailRow: View {
                 status: .waiting,
                 currentTurn: .partyA,
                 currentTurnNumber: 1,
-                maxTurns: 10,
-                turnDuration: 120,
+                maxTurns: 1,
+                turnDuration: 60,
                 partyAId: "user1",
                 partyBId: "",
                 turnStartedAt: nil

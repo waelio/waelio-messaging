@@ -3,6 +3,7 @@ import SwiftUI
 struct SessionView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
     @Environment(\.dismiss) var dismiss
+    @StateObject private var noteDictation = SpeechDictationManager()
     @State private var showingExportSheet = false
     @State private var showingModificationSheet = false
     @State private var exportedLogURL: URL?
@@ -32,6 +33,11 @@ struct SessionView: View {
                 VStack(spacing: 20) {
                     // Timer Section
                     timerSection
+
+                    if let brief = sessionViewModel.session?.conversationBrief,
+                       !brief.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        conversationBriefSection(brief)
+                    }
                     
                     // Party Status
                     partyStatusSection
@@ -212,6 +218,36 @@ struct SessionView: View {
     }
     
     // MARK: - Party Status Section
+    private func conversationBriefSection(_ brief: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .foregroundColor(.secondary)
+                Text("Conversation Brief")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("Read-only")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            Text(brief)
+                .font(.subheadline)
+                .foregroundColor(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding()
+        .background(Color.gray.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        )
+        .cornerRadius(12)
+        .opacity(0.72)
+    }
+
+    // MARK: - Party Status Section
     private var partyStatusSection: some View {
         HStack(spacing: 20) {
             partyStatusCard(
@@ -281,6 +317,19 @@ struct SessionView: View {
                 .disabled(sessionViewModel.isMyTurn) // Can only take notes when opponent is speaking
             
             HStack {
+                Button {
+                    noteDictation.toggleDictation(currentText: sessionViewModel.currentNote) { updated in
+                        sessionViewModel.currentNote = updated
+                    }
+                } label: {
+                    Label(
+                        noteDictation.isRecording ? "Stop Dictation" : "Dictate with Siri",
+                        systemImage: noteDictation.isRecording ? "waveform.circle.fill" : "mic.circle"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .disabled(sessionViewModel.isMyTurn)
+
                 Spacer()
                 
                 Button("Save Note") {
@@ -288,6 +337,12 @@ struct SessionView: View {
                 }
                 .disabled(sessionViewModel.currentNote.isEmpty || sessionViewModel.isMyTurn)
                 .buttonStyle(.bordered)
+            }
+
+            if let dictationError = noteDictation.errorMessage {
+                Text(dictationError)
+                    .font(.caption2)
+                    .foregroundColor(.red)
             }
             
             // Recent notes

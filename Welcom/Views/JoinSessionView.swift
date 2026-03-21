@@ -240,8 +240,8 @@ struct JoinSessionView: View {
                 status: .waiting,
                 currentTurn: .partyA,
                 currentTurnNumber: 1,
-                maxTurns: 10,
-                turnDuration: 120,
+                maxTurns: 1,
+                turnDuration: 60,
                 partyAId: "",
                 partyBId: userId,
                 turnStartedAt: nil

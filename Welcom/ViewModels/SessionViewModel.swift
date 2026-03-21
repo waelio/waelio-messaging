@@ -295,8 +295,8 @@ class SessionViewModel: ObservableObject {
             status: .active,
             currentTurn: .partyA,
             currentTurnNumber: 1,
-            maxTurns: 10,
-            turnDuration: 120,
+            maxTurns: 1,
+            turnDuration: 60,
             partyAId: currentUserId,
             partyBId: "user-other",
             turnStartedAt: Date()

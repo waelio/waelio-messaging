@@ -11,13 +11,15 @@ struct CreateSessionView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var nfcManager = NFCSessionManager()
     @State private var sessionTitle: String = ""
+    @State private var conversationBrief: String = ""
     @State private var userName: String = ""
-    @State private var maxTurns: Int = 10
-    @State private var turnDuration: TimeInterval = 120
+    @State private var maxTurns: Int = 1
+    @State private var turnDuration: TimeInterval = 60
     @State private var createdSession: Session?
     @State private var showingSession = false
     @State private var showingContactPicker = false
     @State private var showContactsDeniedAlert = false
+    @StateObject private var briefDictation = SpeechDictationManager()
     @FocusState private var focusedField: Field?
     
     var body: some View {
@@ -25,6 +27,41 @@ struct CreateSessionView: View {
             Form {
                 Section("Conversation Setup") {
                     TextField("Topic (e.g., Family Discussion)", text: $sessionTitle)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Shared Brief (read-only during session)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        TextEditor(text: $conversationBrief)
+                            .frame(minHeight: 80, maxHeight: 110)
+                            .padding(4)
+                            .background(Color.gray.opacity(0.08))
+                            .cornerRadius(8)
+
+                        HStack {
+                            Button {
+                                briefDictation.toggleDictation(currentText: conversationBrief) { updated in
+                                    conversationBrief = updated
+                                }
+                            } label: {
+                                Label(
+                                    briefDictation.isRecording ? "Stop Dictation" : "Dictate with Siri",
+                                    systemImage: briefDictation.isRecording ? "waveform.circle.fill" : "mic.circle"
+                                )
+                            }
+                            .buttonStyle(.bordered)
+
+                            Spacer()
+                        }
+
+                        if let dictationError = briefDictation.errorMessage {
+                            Text(dictationError)
+                                .font(.caption2)
+                                .foregroundColor(.red)
+                        }
+                    }
+
                     TextField("Your Name", text: $userName)
                         .focused($focusedField, equals: .userName)
                         .textInputAutocapitalization(.words)
@@ -42,7 +79,7 @@ struct CreateSessionView: View {
                     .buttonStyle(.plain)
                     
                     Picker("Number of Turns", selection: $maxTurns) {
-                        ForEach([5, 10, 15, 20], id: \.self) { turns in
+                        ForEach([1, 5, 10, 15, 20], id: \.self) { turns in
                             Text("\(turns) turns each").tag(turns)
                         }
                     }
@@ -123,6 +160,9 @@ struct CreateSessionView: View {
         
         let session = Session(
             title: sessionTitle,
+            conversationBrief: conversationBrief.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? nil
+                : conversationBrief.trimmingCharacters(in: .whitespacesAndNewlines),
             sessionCode: sessionCode,
             status: .waiting,
             currentTurn: .partyA,
