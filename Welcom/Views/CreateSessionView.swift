@@ -1,5 +1,4 @@
 import SwiftUI
-import CoreNFC
 import Contacts
 import ContactsUI
 
@@ -9,7 +8,6 @@ struct CreateSessionView: View {
     }
 
     @Environment(\.dismiss) var dismiss
-    @StateObject private var nfcManager = NFCSessionManager()
     @State private var sessionTitle: String = ""
     @State private var conversationBrief: String = ""
     @State private var userName: String = ""

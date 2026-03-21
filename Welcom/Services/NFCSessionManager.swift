@@ -3,6 +3,8 @@ import Combine
 import CoreNFC
 
 class NFCSessionManager: NSObject, ObservableObject {
+    private static let featureFlagKey = "NFCFeatureEnabled"
+
     @Published var sessionCode: String?
     @Published var errorMessage: String?
     @Published var isReading = false
@@ -10,12 +12,52 @@ class NFCSessionManager: NSObject, ObservableObject {
     
     private var nfcSession: NFCNDEFReaderSession?
     private var codeToWrite: String?
+
+    static var isEnabledInBuild: Bool {
+        guard let value = Bundle.main.object(forInfoDictionaryKey: featureFlagKey) as? NSNumber else {
+            return false
+        }
+
+        return value.boolValue
+    }
+
+    static var isSupported: Bool {
+        guard isEnabledInBuild else {
+            return false
+        }
+
+#if targetEnvironment(simulator)
+        return false
+#else
+        if ProcessInfo.processInfo.isiOSAppOnMac {
+            return false
+        }
+
+        return NFCNDEFReaderSession.readingAvailable
+#endif
+    }
+
+    static var unavailableMessage: String {
+        guard isEnabledInBuild else {
+            return "NFC sharing is disabled in this build until the app's NFC capability is enabled for signing."
+        }
+
+#if targetEnvironment(simulator)
+        return "NFC is not available in the iOS Simulator."
+#else
+        if ProcessInfo.processInfo.isiOSAppOnMac {
+            return "NFC is not available when running an iPhone or iPad app on Mac."
+        }
+
+        return "NFC is not available on this device or with the current signing configuration."
+#endif
+    }
     
     // MARK: - Read Session Code
     
     func startReading() {
-        guard NFCNDEFReaderSession.readingAvailable else {
-            errorMessage = "NFC is not available on this device"
+        guard Self.isSupported else {
+            errorMessage = Self.unavailableMessage
             return
         }
         
@@ -33,8 +75,8 @@ class NFCSessionManager: NSObject, ObservableObject {
     // MARK: - Write Session Code
     
     func startWriting(code: String) {
-        guard NFCNDEFReaderSession.readingAvailable else {
-            errorMessage = "NFC is not available on this device"
+        guard Self.isSupported else {
+            errorMessage = Self.unavailableMessage
             return
         }
         

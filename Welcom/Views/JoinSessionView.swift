@@ -1,5 +1,4 @@
 import SwiftUI
-import CoreNFC
 
 struct JoinSessionView: View {
     @Environment(\.dismiss) var dismiss
@@ -31,6 +30,10 @@ struct JoinSessionView: View {
 
     private var canJoin: Bool {
         sessionCode.count == 6 && !userName.isEmpty && !isJoining
+    }
+
+    private var isNFCEnabled: Bool {
+        NFCSessionManager.isSupported
     }
     
     var body: some View {
@@ -96,7 +99,7 @@ struct JoinSessionView: View {
                                 sessionCode = newValue.uppercased()
                             }
                         
-                        if NFCNDEFReaderSession.readingAvailable {
+                        if isNFCEnabled {
                             Button(action: {
                                 nfcManager.startReading()
                             }) {
@@ -136,7 +139,7 @@ struct JoinSessionView: View {
                         .font(.caption)
                 }
                 
-                if NFCNDEFReaderSession.readingAvailable {
+                if isNFCEnabled {
                     Section {
                         Button(action: {
                             nfcManager.startReading()
@@ -172,7 +175,7 @@ struct JoinSessionView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        if NFCNDEFReaderSession.readingAvailable {
+                        if isNFCEnabled {
                             Text("• Or tap phones together via NFC")
                                 .font(.caption)
                                 .foregroundColor(.secondary)

@@ -71,7 +71,7 @@ struct WelcomApp: App {
                let nestedComponents = URLComponents(url: nestedURL, resolvingAgainstBaseURL: false) {
                 let nestedResult = extractSessionCode(from: nestedURL, components: nestedComponents)
                 if let nestedCode = nestedResult.code, !nestedCode.isEmpty {
-                    return (nestedCode, "nested:\(nestedKey) -> \(nestedResult.source)")
+                    return (nestedCode, "nested:\(nestedKey) -> (nestedResult.source)")
                 }
             }
         }
