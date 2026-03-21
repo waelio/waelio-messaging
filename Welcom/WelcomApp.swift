@@ -10,6 +10,7 @@ import SwiftUI
 @main
 struct WelcomApp: App {
     @State private var pendingSessionCode: String?
+    @State private var pendingSenderName: String?
     @State private var showJoinSession = false
     
     var body: some Scene {
@@ -20,28 +21,42 @@ struct WelcomApp: App {
                 }
                 .sheet(isPresented: $showJoinSession) {
                     if let code = pendingSessionCode {
-                        JoinSessionView(initialSessionCode: code)
+                        JoinSessionView(initialSessionCode: code, initialSenderName: pendingSenderName)
                     }
                 }
         }
     }
     
     private func handleIncomingURL(_ url: URL) {
-        // Handle welcom://join/SESSIONCODE URLs
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
+
+        // Supports:
+        // - welcom://join/SESSIONCODE
+        // - welcom://join/SESSIONCODE?sender=...&receiver=...
+        // - https://waelio-messaging.onrender.com/messaging?code=SESSIONCODE&sender=...&receiver=...
+        if let code = extractSessionCode(from: url, components: components), !code.isEmpty {
+            pendingSessionCode = code.uppercased()
+            pendingSenderName = components.queryItems?.first(where: { $0.name == "senderName" })?.value
+            showJoinSession = true
+        }
+    }
+
+    private func extractSessionCode(from url: URL, components: URLComponents) -> String? {
+        if let codeFromQuery = components.queryItems?.first(where: { $0.name == "code" })?.value,
+           !codeFromQuery.isEmpty {
+            return codeFromQuery
+        }
+
         if url.scheme == "welcom" && url.host == "join" {
-            let sessionCode = url.pathComponents.last ?? ""
-            if !sessionCode.isEmpty {
-                pendingSessionCode = sessionCode.uppercased()
-                showJoinSession = true
-            }
+            let pathCode = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            return pathCode.isEmpty ? nil : pathCode
         }
-        // Handle web URLs with code parameter (e.g., https://github.com/waelio/welcom?code=S3LTFB)
-        else if (url.scheme == "https" || url.scheme == "http") && url.query?.contains("code=") == true {
-            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            if let codeValue = components?.queryItems?.first(where: { $0.name == "code" })?.value {
-                pendingSessionCode = codeValue.uppercased()
-                showJoinSession = true
-            }
+
+        let pathParts = url.pathComponents.filter { $0 != "/" }
+        if let last = pathParts.last, last.lowercased() != "messaging", !last.isEmpty {
+            return last
         }
+
+        return nil
     }
 }

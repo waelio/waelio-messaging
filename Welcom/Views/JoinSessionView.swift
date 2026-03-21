@@ -16,9 +16,11 @@ struct JoinSessionView: View {
     @State private var pulseJoin = false
     
     private let initialSessionCode: String?
+    private let initialSenderName: String?
     
-    init(initialSessionCode: String? = nil) {
+    init(initialSessionCode: String? = nil, initialSenderName: String? = nil) {
         self.initialSessionCode = initialSessionCode
+        self.initialSenderName = initialSenderName
         _sessionCode = State(initialValue: initialSessionCode ?? "")
     }
 
@@ -29,6 +31,19 @@ struct JoinSessionView: View {
     var body: some View {
         NavigationView {
             Form {
+                if let senderName = initialSenderName,
+                   !senderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Section {
+                        HStack(spacing: 8) {
+                            Image(systemName: "person.crop.circle.badge.checkmark")
+                                .foregroundColor(.blue)
+                            Text("Invited by \(senderName)")
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                        }
+                    }
+                }
+
                 Section("Your Details") {
                     TextField("Your Name", text: $userName)
                     

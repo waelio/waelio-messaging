@@ -55,6 +55,10 @@ class SessionViewModel: ObservableObject {
         case .reconnecting: return "Reconnecting"
         }
     }
+
+    var currentUserName: String {
+        userName
+    }
     
     init(session: Session? = nil, userId: String? = nil, userName: String = "User", isHost: Bool = false) {
         self.currentUserId = userId ?? UUID().uuidString

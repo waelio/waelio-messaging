@@ -154,8 +154,8 @@ struct WaitingRoomView: View {
                     """
                     Join my Welcom conversation!
                     
-                    📱 App users: welcom://join/\(code)
-                    🌐 Web link: https://waelio-messaging.onrender.com/?code=\(code)
+                    📱 App users: \(appJoinLink(for: code))
+                    🌐 Intermediary link: \(webJoinLink(for: code))
                     
                     Or enter the code manually: \(code)
                     
@@ -170,6 +170,41 @@ struct WaitingRoomView: View {
     private func timeString(from timeInterval: TimeInterval) -> String {
         let minutes = Int(timeInterval) / 60
         return "\(minutes) min"
+    }
+
+    private func appJoinLink(for code: String) -> String {
+        var components = URLComponents()
+        components.scheme = "welcom"
+        components.host = "join"
+        components.path = "/\(code)"
+        components.queryItems = shareQueryItems(for: code)
+        return components.url?.absoluteString ?? "welcom://join/\(code)"
+    }
+
+    private func webJoinLink(for code: String) -> String {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "waelio-messaging.onrender.com"
+        components.path = "/messaging"
+        let appLink = appJoinLink(for: code)
+        components.queryItems = shareQueryItems(for: code) + [
+            URLQueryItem(name: "app_link", value: appLink),
+            URLQueryItem(name: "deeplink", value: appLink)
+        ]
+        return components.url?.absoluteString ?? "https://waelio-messaging.onrender.com/messaging?code=\(code)"
+    }
+
+    private func shareQueryItems(for code: String) -> [URLQueryItem] {
+        let senderId = sessionViewModel.currentUserId
+        let senderName = sessionViewModel.currentUserName
+        let receiverId = sessionViewModel.session?.partyBId ?? ""
+
+        return [
+            URLQueryItem(name: "code", value: code),
+            URLQueryItem(name: "sender", value: senderId),
+            URLQueryItem(name: "senderName", value: senderName),
+            URLQueryItem(name: "receiver", value: receiverId)
+        ]
     }
 }
 
