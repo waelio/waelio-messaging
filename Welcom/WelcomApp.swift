@@ -12,6 +12,7 @@ struct WelcomApp: App {
     @State private var pendingSessionCode: String?
     @State private var pendingSenderName: String?
     @State private var pendingJoinMessage: String?
+    @State private var pendingParseDebugInfo: String?
     @State private var showJoinSession = false
     
     var body: some Scene {
@@ -26,7 +27,8 @@ struct WelcomApp: App {
                     JoinSessionView(
                         initialSessionCode: pendingSessionCode,
                         initialSenderName: pendingSenderName,
-                        initialLinkMessage: pendingJoinMessage
+                        initialLinkMessage: pendingJoinMessage,
+                        initialParseDebugInfo: pendingParseDebugInfo
                     )
                 }
         }
@@ -41,21 +43,25 @@ struct WelcomApp: App {
         // - https://waelio-messaging.onrender.com/messaging?code=SESSIONCODE&sender=...&receiver=...
         pendingSenderName = extractSenderName(from: url, components: components)
 
-        if let code = extractSessionCode(from: url, components: components), !code.isEmpty {
+        let extraction = extractSessionCode(from: url, components: components)
+
+        if let code = extraction.code, !code.isEmpty {
             pendingSessionCode = code.uppercased()
             pendingJoinMessage = nil
+            pendingParseDebugInfo = buildParseDebugInfo(url: url, source: extraction.source, code: code)
             showJoinSession = true
         } else {
             pendingSessionCode = nil
             pendingJoinMessage = "This invite link is missing a session code. Ask the sender to share the invitation again."
+            pendingParseDebugInfo = buildParseDebugInfo(url: url, source: extraction.source, code: nil)
             showJoinSession = true
         }
     }
 
-    private func extractSessionCode(from url: URL, components: URLComponents) -> String? {
+    private func extractSessionCode(from url: URL, components: URLComponents) -> (code: String?, source: String) {
         if let codeFromQuery = components.queryItems?.first(where: { $0.name == "code" })?.value,
            !codeFromQuery.isEmpty {
-            return codeFromQuery
+            return (codeFromQuery, "query:code")
         }
 
         // Intermediary links may embed the app link as a query item
@@ -63,23 +69,24 @@ struct WelcomApp: App {
             if let nestedValue = components.queryItems?.first(where: { $0.name == nestedKey })?.value,
                let nestedURL = URL(string: nestedValue),
                let nestedComponents = URLComponents(url: nestedURL, resolvingAgainstBaseURL: false),
-               let nestedCode = extractSessionCode(from: nestedURL, components: nestedComponents),
+               let nestedResult = extractSessionCode(from: nestedURL, components: nestedComponents),
+               let nestedCode = nestedResult.code,
                !nestedCode.isEmpty {
-                return nestedCode
+                return (nestedCode, "nested:\(nestedKey) -> \(nestedResult.source)")
             }
         }
 
         if url.scheme == "welcom" && url.host == "join" {
             let pathCode = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            return pathCode.isEmpty ? nil : pathCode
+            return pathCode.isEmpty ? (nil, "welcom-path(empty)") : (pathCode, "welcom-path")
         }
 
         let pathParts = url.pathComponents.filter { $0 != "/" }
         if let last = pathParts.last, last.lowercased() != "messaging", !last.isEmpty {
-            return last
+            return (last, "url-path-tail")
         }
 
-        return fallbackSessionCode(from: url.absoluteString)
+        return (fallbackSessionCode(from: url.absoluteString), "fallback-regex")
     }
 
     private func fallbackSessionCode(from raw: String) -> String? {
@@ -142,5 +149,14 @@ struct WelcomApp: App {
             }
         }
         return value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func buildParseDebugInfo(url: URL, source: String, code: String?) -> String {
+        let shortRaw = String(url.absoluteString.prefix(380))
+        return """
+        Parsed code: \(code ?? "<none>")
+        Source: \(source)
+        Raw link: \(shortRaw)
+        """
     }
 }

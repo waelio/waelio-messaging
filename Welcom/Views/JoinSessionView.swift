@@ -14,15 +14,18 @@ struct JoinSessionView: View {
     @State private var scannedCode: String?
     @State private var animateIn = false
     @State private var pulseJoin = false
+    @State private var showParseDebugInfo = true
     
     private let initialSessionCode: String?
     private let initialSenderName: String?
     private let initialLinkMessage: String?
+    private let initialParseDebugInfo: String?
     
-    init(initialSessionCode: String? = nil, initialSenderName: String? = nil, initialLinkMessage: String? = nil) {
+    init(initialSessionCode: String? = nil, initialSenderName: String? = nil, initialLinkMessage: String? = nil, initialParseDebugInfo: String? = nil) {
         self.initialSessionCode = initialSessionCode
         self.initialSenderName = initialSenderName
         self.initialLinkMessage = initialLinkMessage
+        self.initialParseDebugInfo = initialParseDebugInfo
         _sessionCode = State(initialValue: initialSessionCode ?? "")
     }
 
@@ -55,6 +58,29 @@ struct JoinSessionView: View {
                             Text("Invited by \(senderName)")
                                 .font(.subheadline)
                                 .foregroundColor(.primary)
+                        }
+                    }
+                }
+
+                if showParseDebugInfo,
+                   let parseInfo = initialParseDebugInfo,
+                   !parseInfo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Section("Invite Parse Details") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(parseInfo)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .textSelection(.enabled)
+
+                            HStack {
+                                Spacer()
+                                Button("Hide") {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        showParseDebugInfo = false
+                                    }
+                                }
+                                .font(.caption)
+                            }
                         }
                     }
                 }
