@@ -6,11 +6,9 @@
 	<array>
 		<string>applinks:waelio-messaging.onrender.com</string>
 	</array>
-	<!-- NFC capability disabled for Personal Development Team -->
-	<!-- Re-enable once Apple Developer Program activates -->
-	<!-- <key>com.apple.developer.nfc.readersession.formats</key>
+	<key>com.apple.developer.nfc.readersession.formats</key>
 	<array>
 		<string>NDEF</string>
-	</array> -->
+	</array>
 </dict>
 </plist>

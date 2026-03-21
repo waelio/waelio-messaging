@@ -90,9 +90,12 @@ struct JoinSessionView: View {
 
                 Section("Your Details") {
                     TextField("Your Name", text: $userName)
+                        .textContentType(.name)
+                        .autocorrectionDisabled()
                     
                     HStack {
                         TextField("Session Code", text: $sessionCode)
+                            .textContentType(.oneTimeCode)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
                             .onChange(of: sessionCode) { oldValue, newValue in

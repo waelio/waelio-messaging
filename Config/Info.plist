@@ -67,7 +67,9 @@
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>We use speech recognition to convert your voice into text for briefs and notes.</string>
 	<key>NFCFeatureEnabled</key>
-	<false/>
+	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>Welcom uses NFC to share session codes by tapping two iPhones together.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

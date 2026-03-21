@@ -39,7 +39,7 @@ class NFCSessionManager: NSObject, ObservableObject {
 
     static var unavailableMessage: String {
         guard isEnabledInBuild else {
-            return "NFC sharing is disabled in this build until the app's NFC capability is enabled for signing."
+            return "NFC is not available on this device."
         }
 
 #if targetEnvironment(simulator)

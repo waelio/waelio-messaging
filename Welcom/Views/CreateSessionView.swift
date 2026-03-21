@@ -26,6 +26,7 @@ struct CreateSessionView: View {
             Form {
                 Section("Conversation Setup") {
                     TextField("Topic (e.g., Family Discussion)", text: $sessionTitle)
+                        .textContentType(.none)
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Shared Brief (read-only during session)")
@@ -63,6 +64,8 @@ struct CreateSessionView: View {
 
                     TextField("Your Name", text: $userName)
                         .focused($focusedField, equals: .userName)
+                        .textContentType(.name)
+                        .autocorrectionDisabled()
                         .textInputAutocapitalization(.words)
 
                     Button {
