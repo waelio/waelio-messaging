@@ -13,6 +13,10 @@ class WebSocketService: NSObject, ObservableObject {
     private let serverURL: String
     private let userId: String
     private let userName: String
+    private var reconnectAttempt = 0
+    private var reconnectWorkItem: DispatchWorkItem?
+    private var shouldReconnect = true
+    private let maxReconnectDelay: TimeInterval = 20
     
     struct Message: Codable, Identifiable {
         let id = UUID()
@@ -55,6 +59,9 @@ class WebSocketService: NSObject, ObservableObject {
     // MARK: - Connection
     
     func connect() {
+        shouldReconnect = true
+        reconnectWorkItem?.cancel()
+
         guard let url = URL(string: serverURL) else {
             error = "Invalid server URL"
             return
@@ -62,16 +69,15 @@ class WebSocketService: NSObject, ObservableObject {
         
         webSocketTask = session?.webSocketTask(with: url)
         webSocketTask?.resume()
-        isConnected = true
+        isConnected = false
         
         // Start receiving messages
         receiveMessage()
-        
-        // Send join message with user info
-        sendJoin()
     }
     
     func disconnect() {
+        shouldReconnect = false
+        reconnectWorkItem?.cancel()
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         isConnected = false
     }
@@ -137,8 +143,25 @@ class WebSocketService: NSObject, ObservableObject {
                     self.error = "Receive error: \(error.localizedDescription)"
                     self.isConnected = false
                 }
+                self.scheduleReconnectIfNeeded()
             }
         }
+    }
+
+    private func scheduleReconnectIfNeeded() {
+        guard shouldReconnect else { return }
+
+        reconnectWorkItem?.cancel()
+        reconnectAttempt += 1
+
+        let delay = min(pow(2.0, Double(reconnectAttempt)), maxReconnectDelay)
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self, self.shouldReconnect else { return }
+            self.connect()
+        }
+
+        reconnectWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
     
     private func handleMessage(_ text: String) {
@@ -175,6 +198,8 @@ extension WebSocketService: URLSessionWebSocketDelegate {
         DispatchQueue.main.async {
             self.isConnected = true
             self.error = nil
+            self.reconnectAttempt = 0
+            self.sendJoin()
         }
     }
     
@@ -182,5 +207,6 @@ extension WebSocketService: URLSessionWebSocketDelegate {
         DispatchQueue.main.async {
             self.isConnected = false
         }
+        scheduleReconnectIfNeeded()
     }
 }

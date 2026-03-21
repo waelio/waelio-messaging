@@ -5,18 +5,23 @@ import Combine
 class SessionMessagingService: ObservableObject {
     @Published var participantJoinedEvent: SessionSyncMessage?
     @Published var sessionState: SessionSyncMessage?
+    @Published var requestEvent: SessionSyncMessage?
     
     private let webSocket: WebSocketService
     private let sessionCode: String
     private var cancellables = Set<AnyCancellable>()
     
     struct SessionSyncMessage: Codable {
-        let type: String // "join-session", "session-state", "turn-update", "request"
+        let type: String // "join-session", "session-state", "request", "request-response"
         let sessionCode: String
         let userId: String
         let userName: String?
         let session: SessionData?
         let requestType: String?
+        let requestId: String?
+        let requestReason: String?
+        let requestApproved: Bool?
+        let requestRequesterId: String?
         
         struct SessionData: Codable {
             let currentTurn: String
@@ -48,7 +53,11 @@ class SessionMessagingService: ObservableObject {
             userId: userId,
             userName: userName,
             session: nil,
-            requestType: nil
+            requestType: nil,
+            requestId: nil,
+            requestReason: nil,
+            requestApproved: nil,
+            requestRequesterId: nil
         )
         
         sendSessionMessage(message)
@@ -74,20 +83,51 @@ class SessionMessagingService: ObservableObject {
             userId: userId,
             userName: nil,
             session: sessionData,
-            requestType: nil
+            requestType: nil,
+            requestId: nil,
+            requestReason: nil,
+            requestApproved: nil,
+            requestRequesterId: nil
         )
         
         sendSessionMessage(message)
     }
     
-    func sendModificationRequest(userId: String, requestType: String) {
+    func sendModificationRequest(userId: String, requestType: String, requestId: String, reason: String) {
         let message = SessionSyncMessage(
             type: "request",
             sessionCode: sessionCode,
             userId: userId,
             userName: nil,
             session: nil,
-            requestType: requestType
+            requestType: requestType,
+            requestId: requestId,
+            requestReason: reason,
+            requestApproved: nil,
+            requestRequesterId: userId
+        )
+
+        sendSessionMessage(message)
+    }
+
+    func sendModificationResponse(
+        userId: String,
+        requestId: String,
+        requestType: String,
+        requestApproved: Bool,
+        requestRequesterId: String
+    ) {
+        let message = SessionSyncMessage(
+            type: "request-response",
+            sessionCode: sessionCode,
+            userId: userId,
+            userName: nil,
+            session: nil,
+            requestType: requestType,
+            requestId: requestId,
+            requestReason: nil,
+            requestApproved: requestApproved,
+            requestRequesterId: requestRequesterId
         )
         
         sendSessionMessage(message)
@@ -120,6 +160,9 @@ class SessionMessagingService: ObservableObject {
             
         case "session-state":
             sessionState = syncMessage
+
+        case "request", "request-response":
+            requestEvent = syncMessage
             
         default:
             break

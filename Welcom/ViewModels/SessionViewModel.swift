@@ -2,6 +2,13 @@ import Foundation
 import Combine
 
 class SessionViewModel: ObservableObject {
+    enum SyncConnectionState: Equatable {
+        case offline
+        case connecting
+        case connected
+        case reconnecting
+    }
+
     @Published var session: Session?
     @Published var timeRemaining: TimeInterval = 120
     @Published var currentNote: String = ""
@@ -12,6 +19,8 @@ class SessionViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var showRatingView: Bool = false
+    @Published var syncConnectionState: SyncConnectionState = .offline
+    @Published var lastSyncAt: Date?
     
     var myParty: Session.TurnParty?
     let currentUserId: String
@@ -23,6 +32,7 @@ class SessionViewModel: ObservableObject {
     // MARK: - WebSocket Integration
     private var webSocketService: WebSocketService?
     private var sessionMessaging: SessionMessagingService?
+    private var knownRequestIDs = Set<String>()
     
     var isMyTurn: Bool {
         guard let session = session, let myParty = myParty else { return false }
@@ -35,6 +45,15 @@ class SessionViewModel: ObservableObject {
             return session.status == .waiting && session.partyBId.isEmpty
         }
         return session.status == .waiting
+    }
+
+    var syncStatusText: String {
+        switch syncConnectionState {
+        case .offline: return "Offline"
+        case .connecting: return "Connecting"
+        case .connected: return "Synced"
+        case .reconnecting: return "Reconnecting"
+        }
     }
     
     init(session: Session? = nil, userId: String? = nil, userName: String = "User", isHost: Bool = false) {
@@ -156,12 +175,24 @@ class SessionViewModel: ObservableObject {
             type: type,
             reason: reason
         )
-        
-        pendingRequests.append(request)
+
+        if !knownRequestIDs.contains(request.id) {
+            knownRequestIDs.insert(request.id)
+            pendingRequests.append(request)
+        }
+
+        sessionMessaging?.sendModificationRequest(
+            userId: currentUserId,
+            requestType: request.type.rawValue,
+            requestId: request.id,
+            reason: request.reason
+        )
+
         addLogEntry(type: .modificationRequested, message: "Modification requested: \(type.description)")
     }
     
     func respondToRequest(_ request: ModificationRequest, approve: Bool) {
+        guard isHost else { return }
         guard let index = pendingRequests.firstIndex(where: { $0.id == request.id }) else { return }
         
         var updatedRequest = request
@@ -169,6 +200,14 @@ class SessionViewModel: ObservableObject {
         updatedRequest.respondedAt = Date()
         
         pendingRequests.remove(at: index)
+
+        sessionMessaging?.sendModificationResponse(
+            userId: currentUserId,
+            requestId: request.id,
+            requestType: request.type.rawValue,
+            requestApproved: approve,
+            requestRequesterId: request.requestingUserId
+        )
         
         if approve {
             applyModification(request.type)
@@ -273,6 +312,8 @@ class SessionViewModel: ObservableObject {
     private func enableWebSocketSyncIfNeeded() {
         guard let session = session else { return }
 
+        syncConnectionState = .connecting
+
         webSocketService = WebSocketService(userId: currentUserId, userName: userName)
         guard let webSocketService = webSocketService else { return }
 
@@ -288,6 +329,22 @@ class SessionViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        webSocketService.$isConnected
+            .sink { [weak self] isConnected in
+                guard let self = self else { return }
+                if isConnected {
+                    self.syncConnectionState = .connected
+                    self.lastSyncAt = Date()
+                    self.sessionMessaging?.announceSession(userId: self.currentUserId, userName: self.userName)
+                    if self.isHost {
+                        self.broadcastCurrentSessionState()
+                    }
+                } else {
+                    self.syncConnectionState = (self.syncConnectionState == .connected) ? .reconnecting : .connecting
+                }
+            }
+            .store(in: &cancellables)
+
         sessionMessaging?.$participantJoinedEvent
             .compactMap { $0 }
             .sink { [weak self] joinEvent in
@@ -299,6 +356,13 @@ class SessionViewModel: ObservableObject {
             .compactMap { $0 }
             .sink { [weak self] state in
                 self?.applyRemoteSessionState(state)
+            }
+            .store(in: &cancellables)
+
+        sessionMessaging?.$requestEvent
+            .compactMap { $0 }
+            .sink { [weak self] event in
+                self?.handleRequestEvent(event)
             }
             .store(in: &cancellables)
 
@@ -344,6 +408,7 @@ class SessionViewModel: ObservableObject {
         session = localSession
         timeRemaining = max(0, remote.timeRemaining)
         updateMuteStatus()
+        lastSyncAt = Date()
 
         if localSession.status == .active {
             if timer == nil {
@@ -352,6 +417,56 @@ class SessionViewModel: ObservableObject {
         } else {
             timer?.invalidate()
             timer = nil
+        }
+    }
+
+    private func handleRequestEvent(_ event: SessionMessagingService.SessionSyncMessage) {
+        guard event.userId != currentUserId else { return }
+
+        switch event.type {
+        case "request":
+            handleIncomingRequest(event)
+        case "request-response":
+            handleIncomingRequestResponse(event)
+        default:
+            break
+        }
+    }
+
+    private func handleIncomingRequest(_ event: SessionMessagingService.SessionSyncMessage) {
+        guard isHost else { return }
+        guard let requestId = event.requestId,
+              !knownRequestIDs.contains(requestId),
+              let requestTypeString = event.requestType,
+              let requestType = ModificationRequest.ModificationType(rawValue: requestTypeString),
+              let session = session else { return }
+
+        knownRequestIDs.insert(requestId)
+
+        let request = ModificationRequest(
+            id: requestId,
+            sessionId: session.id,
+            requestingUserId: event.requestRequesterId ?? event.userId,
+            type: requestType,
+            reason: event.requestReason ?? "Remote request"
+        )
+
+        pendingRequests.append(request)
+        addLogEntry(type: .modificationRequested, message: "Remote request: \(request.type.description)")
+    }
+
+    private func handleIncomingRequestResponse(_ event: SessionMessagingService.SessionSyncMessage) {
+        guard let requestId = event.requestId,
+              let approved = event.requestApproved else { return }
+
+        guard let index = pendingRequests.firstIndex(where: { $0.id == requestId }) else { return }
+        let request = pendingRequests.remove(at: index)
+
+        if approved {
+            applyModification(request.type)
+            addLogEntry(type: .modificationApproved, message: "Approved: \(request.type.description)")
+        } else {
+            addLogEntry(type: .modificationDenied, message: "Denied: \(request.type.description)")
         }
     }
 

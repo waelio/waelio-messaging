@@ -103,6 +103,21 @@ struct SessionView: View {
                     .font(.caption)
                 
                 Spacer()
+
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(syncStatusColor)
+                        .frame(width: 7, height: 7)
+                    Text(sessionViewModel.syncStatusText)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                
+                if let lastSync = sessionViewModel.lastSyncAt {
+                    Text(lastSync, style: .time)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
                 
                 if let myParty = sessionViewModel.myParty {
                     Text("You: \(myParty.displayName)")
@@ -135,6 +150,15 @@ struct SessionView: View {
         case .waiting: return "Waiting for participant"
         case .completed: return "Completed"
         case .none: return "Unknown"
+        }
+    }
+
+    private var syncStatusColor: Color {
+        switch sessionViewModel.syncConnectionState {
+        case .connected: return .green
+        case .connecting: return .orange
+        case .reconnecting: return .orange
+        case .offline: return .red
         }
     }
     
