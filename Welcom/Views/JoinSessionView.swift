@@ -12,12 +12,18 @@ struct JoinSessionView: View {
     @State private var showingSession = false
     @State private var showingQRScanner = false
     @State private var scannedCode: String?
+    @State private var animateIn = false
+    @State private var pulseJoin = false
     
     private let initialSessionCode: String?
     
     init(initialSessionCode: String? = nil) {
         self.initialSessionCode = initialSessionCode
         _sessionCode = State(initialValue: initialSessionCode ?? "")
+    }
+
+    private var canJoin: Bool {
+        sessionCode.count == 6 && !userName.isEmpty && !isJoining
     }
     
     var body: some View {
@@ -140,8 +146,13 @@ struct JoinSessionView: View {
                         }
                     }
                     .disabled(sessionCode.count != 6 || userName.isEmpty || isJoining)
+                    .scaleEffect(canJoin && pulseJoin ? 1.02 : 1.0)
+                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulseJoin)
                 }
             }
+            .opacity(animateIn ? 1 : 0)
+            .offset(y: animateIn ? 0 : 14)
+            .animation(.spring(response: 0.45, dampingFraction: 0.86), value: animateIn)
             .navigationTitle("Join Conversation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -163,6 +174,10 @@ struct JoinSessionView: View {
             }
             .sheet(isPresented: $showingQRScanner) {
                 QRCodeScannerView(scannedCode: $scannedCode)
+            }
+            .onAppear {
+                animateIn = true
+                pulseJoin = true
             }
             .fullScreenCover(isPresented: $showingSession) {
                 if let session = joinedSession {

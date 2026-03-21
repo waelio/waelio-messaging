@@ -6,6 +6,9 @@ struct WaitingRoomView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var nfcManager = NFCSessionManager()
     @State private var showingShareSheet = false
+    @State private var animateIn = false
+    @State private var pulseCode = false
+    @State private var breatheSpinner = false
     
     var body: some View {
         VStack(spacing: 30) {
@@ -28,6 +31,7 @@ struct WaitingRoomView: View {
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         .shadow(radius: 5)
+                    .scaleEffect(pulseCode ? 1.02 : 1.0)
                 }
                 
                 Text(sessionViewModel.session?.sessionCode ?? "")
@@ -43,6 +47,7 @@ struct WaitingRoomView: View {
                                     .stroke(Color.blue, lineWidth: 2)
                             )
                     )
+                    .scaleEffect(pulseCode ? 1.01 : 1.0)
                 
                 Button(action: { showingShareSheet = true }) {
                     HStack {
@@ -75,13 +80,17 @@ struct WaitingRoomView: View {
                     .disabled(nfcManager.isWriting)
                 }
             }
+            .opacity(animateIn ? 1 : 0)
+            .offset(y: animateIn ? 0 : 16)
+            .animation(.spring(response: 0.45, dampingFraction: 0.86), value: animateIn)
             
             Spacer()
             
             // Waiting indicator
             VStack(spacing: 15) {
                 ProgressView()
-                    .scaleEffect(1.5)
+                    .scaleEffect(breatheSpinner ? 1.58 : 1.42)
+                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: breatheSpinner)
                 
                 Text("Waiting for other person...")
                     .font(.headline)
@@ -93,6 +102,9 @@ struct WaitingRoomView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             }
+                    .opacity(animateIn ? 1 : 0)
+                    .offset(y: animateIn ? 0 : 20)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.86).delay(0.08), value: animateIn)
             
             Spacer()
             
@@ -108,6 +120,9 @@ struct WaitingRoomView: View {
                     .fill(Color.gray.opacity(0.1))
             )
             .padding(.horizontal, 20)
+            .opacity(animateIn ? 1 : 0)
+            .offset(y: animateIn ? 0 : 24)
+            .animation(.spring(response: 0.55, dampingFraction: 0.88).delay(0.14), value: animateIn)
             
             Spacer()
             
@@ -128,6 +143,11 @@ struct WaitingRoomView: View {
         }
         .navigationTitle(sessionViewModel.session?.title ?? "Session")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            animateIn = true
+            pulseCode = true
+            breatheSpinner = true
+        }
         .sheet(isPresented: $showingShareSheet) {
             if let code = sessionViewModel.session?.sessionCode {
                 ShareSheet(items: [
