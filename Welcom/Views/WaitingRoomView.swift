@@ -5,7 +5,7 @@ struct WaitingRoomView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
     @Environment(\.dismiss) var dismiss
     @StateObject private var nfcManager = NFCSessionManager()
-    @State private var showingShareSheet = false
+    @State private var shareMessage = ""
     @State private var animateIn = false
     @State private var pulseCode = false
     @State private var breatheSpinner = false
@@ -49,7 +49,7 @@ struct WaitingRoomView: View {
                     )
                     .scaleEffect(pulseCode ? 1.01 : 1.0)
                 
-                Button(action: { showingShareSheet = true }) {
+                ShareLink(item: shareMessage.isEmpty ? fallbackShareMessage : shareMessage) {
                     HStack {
                         Image(systemName: "square.and.arrow.up")
                         Text("Share via AirDrop")
@@ -147,25 +147,13 @@ struct WaitingRoomView: View {
             animateIn = true
             pulseCode = true
             breatheSpinner = true
+            rebuildShareMessage()
         }
-        .sheet(isPresented: $showingShareSheet) {
-            if let code = sessionViewModel.session?.sessionCode {
-                ShareSheet(items: [
-                    """
-                    Join my Welcom conversation 👋
-
-                    Open in browser:
-                    \(webJoinLink(for: code))
-
-                    Then tap “Open in App”.
-
-                    Direct app link:
-                    \(appJoinLink(for: code))
-
-                    Code: \(code)
-                    """
-                ])
-            }
+        .onChange(of: sessionViewModel.session?.sessionCode) { _ in
+            rebuildShareMessage()
+        }
+        .onChange(of: sessionViewModel.currentUserName) { _ in
+            rebuildShareMessage()
         }
     }
     
@@ -212,6 +200,31 @@ struct WaitingRoomView: View {
         }
 
         return items
+    }
+
+    private var fallbackShareMessage: String {
+        "Join my Welcom conversation 👋"
+    }
+
+    private func rebuildShareMessage() {
+        guard let code = sessionViewModel.session?.sessionCode, !code.isEmpty else {
+            shareMessage = fallbackShareMessage
+            return
+        }
+
+        shareMessage = """
+        Join my Welcom conversation 👋
+
+        Open in browser:
+        \(webJoinLink(for: code))
+
+        Then tap “Open in App”.
+
+        Direct app link:
+        \(appJoinLink(for: code))
+
+        Code: \(code)
+        """
     }
 }
 
