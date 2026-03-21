@@ -5,8 +5,6 @@ struct WaitingRoomView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
     @Environment(\.dismiss) var dismiss
     @StateObject private var nfcManager = NFCSessionManager()
-    @State private var shareURL: URL?
-    @State private var shareCaption = "Join my Welcom conversation 👋"
     @State private var animateIn = false
     @State private var pulseCode = false
     @State private var breatheSpinner = false
@@ -51,9 +49,9 @@ struct WaitingRoomView: View {
                     .scaleEffect(pulseCode ? 1.01 : 1.0)
                 
                 ShareLink(
-                    item: shareURL ?? fallbackShareURL,
+                    item: currentShareURL,
                     subject: Text("Join my Welcom conversation"),
-                    message: Text(shareCaption)
+                    message: Text(currentShareCaption)
                 ) {
                     HStack {
                         Image(systemName: "square.and.arrow.up")
@@ -152,13 +150,6 @@ struct WaitingRoomView: View {
             animateIn = true
             pulseCode = true
             breatheSpinner = true
-            rebuildSharePayload()
-        }
-        .onChange(of: sessionViewModel.session?.sessionCode) { _ in
-            rebuildSharePayload()
-        }
-        .onChange(of: sessionViewModel.currentUserName) { _ in
-            rebuildSharePayload()
         }
     }
     
@@ -211,15 +202,20 @@ struct WaitingRoomView: View {
         URL(string: "https://waelio-messaging.onrender.com")!
     }
 
-    private func rebuildSharePayload() {
+    private var currentShareURL: URL {
         guard let code = sessionViewModel.session?.sessionCode, !code.isEmpty else {
-            shareURL = fallbackShareURL
-            shareCaption = "Join my Welcom conversation 👋"
-            return
+            return fallbackShareURL
         }
 
-        shareURL = URL(string: webJoinLink(for: code))
-        shareCaption = "Code: \(code) • If prompted, choose Open"
+        return URL(string: webJoinLink(for: code)) ?? fallbackShareURL
+    }
+
+    private var currentShareCaption: String {
+        guard let code = sessionViewModel.session?.sessionCode, !code.isEmpty else {
+            return "Join my Welcom conversation 👋"
+        }
+
+        return "Code: \(code) • If prompted, choose Open"
     }
 }
 
