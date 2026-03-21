@@ -177,7 +177,7 @@ private struct ContactPickerView: UIViewControllerRepresentable {
     let onSelect: (String) -> Void
 
     func makeUIViewController(context: Context) -> CNContactPickerViewController {
-        let controller = CNContactPickerViewController()
+        let controller = CNContactPickerViewController()        
         controller.delegate = context.coordinator
         controller.predicateForSelectionOfContact = NSPredicate(value: true)
         controller.displayedPropertyKeys = [CNContactGivenNameKey, CNContactFamilyNameKey, CNContactNicknameKey]
@@ -188,7 +188,7 @@ private struct ContactPickerView: UIViewControllerRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onSelect: onSelect)
-    }       
+    }
 
     final class Coordinator: NSObject, CNContactPickerDelegate {
         let onSelect: (String) -> Void
