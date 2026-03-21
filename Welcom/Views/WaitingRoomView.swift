@@ -5,7 +5,8 @@ struct WaitingRoomView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
     @Environment(\.dismiss) var dismiss
     @StateObject private var nfcManager = NFCSessionManager()
-    @State private var shareMessage = ""
+    @State private var shareURL: URL?
+    @State private var shareCaption = "Join my Welcom conversation 👋"
     @State private var animateIn = false
     @State private var pulseCode = false
     @State private var breatheSpinner = false
@@ -49,7 +50,11 @@ struct WaitingRoomView: View {
                     )
                     .scaleEffect(pulseCode ? 1.01 : 1.0)
                 
-                ShareLink(item: shareMessage.isEmpty ? fallbackShareMessage : shareMessage) {
+                ShareLink(
+                    item: shareURL ?? fallbackShareURL,
+                    subject: Text("Join my Welcom conversation"),
+                    message: Text(shareCaption)
+                ) {
                     HStack {
                         Image(systemName: "square.and.arrow.up")
                         Text("Share via AirDrop")
@@ -147,13 +152,13 @@ struct WaitingRoomView: View {
             animateIn = true
             pulseCode = true
             breatheSpinner = true
-            rebuildShareMessage()
+            rebuildSharePayload()
         }
         .onChange(of: sessionViewModel.session?.sessionCode) { _ in
-            rebuildShareMessage()
+            rebuildSharePayload()
         }
         .onChange(of: sessionViewModel.currentUserName) { _ in
-            rebuildShareMessage()
+            rebuildSharePayload()
         }
     }
     
@@ -202,29 +207,19 @@ struct WaitingRoomView: View {
         return items
     }
 
-    private var fallbackShareMessage: String {
-        "Join my Welcom conversation 👋"
+    private var fallbackShareURL: URL {
+        URL(string: "https://waelio-messaging.onrender.com")!
     }
 
-    private func rebuildShareMessage() {
+    private func rebuildSharePayload() {
         guard let code = sessionViewModel.session?.sessionCode, !code.isEmpty else {
-            shareMessage = fallbackShareMessage
+            shareURL = fallbackShareURL
+            shareCaption = "Join my Welcom conversation 👋"
             return
         }
 
-        shareMessage = """
-        Join my Welcom conversation 👋
-
-        Open in browser:
-        \(webJoinLink(for: code))
-
-        Then tap “Open in App”.
-
-        Direct app link:
-        \(appJoinLink(for: code))
-
-        Code: \(code)
-        """
+        shareURL = URL(string: webJoinLink(for: code))
+        shareCaption = "Code: \(code) • If prompted, choose Open"
     }
 }
 
