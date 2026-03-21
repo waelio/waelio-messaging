@@ -3,7 +3,7 @@ import Combine
 
 /// Manages real-time session synchronization using waelio-messaging
 class SessionMessagingService: ObservableObject {
-    @Published var participantJoined = false
+    @Published var participantJoinedEvent: SessionSyncMessage?
     @Published var sessionState: SessionSyncMessage?
     
     private let webSocket: WebSocketService
@@ -116,7 +116,7 @@ class SessionMessagingService: ObservableObject {
         
         switch syncMessage.type {
         case "join-session":
-            participantJoined = true
+            participantJoinedEvent = syncMessage
             
         case "session-state":
             sessionState = syncMessage

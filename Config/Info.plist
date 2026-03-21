@@ -71,5 +71,7 @@
 			<string>com.waelio.welcom</string>
 		</dict>
 	</array>
+	<key>WebSocketServerURL</key>
+	<string>wss://waelio-messaging.onrender.com</string>
 </dict>
 </plist>

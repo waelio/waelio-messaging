@@ -192,14 +192,14 @@ struct JoinSessionView: View {
             let session = Session(
                 title: "Negotiation Session",
                 sessionCode: sessionCode,
-                status: .active,
+                status: .waiting,
                 currentTurn: .partyA,
                 currentTurnNumber: 1,
                 maxTurns: 10,
                 turnDuration: 120,
-                partyAId: "host-user-id",
+                partyAId: "",
                 partyBId: userId,
-                turnStartedAt: Date()
+                turnStartedAt: nil
             )
             
             joinedSession = session

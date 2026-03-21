@@ -20,10 +20,9 @@ class SessionViewModel: ObservableObject {
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
     
-    // MARK: - WebSocket Integration (Optional)
-    // Uncomment to enable real-time sync with waelio-messaging backend
-    // private var webSocketService: WebSocketService?
-    // private var sessionMessaging: SessionMessagingService?
+    // MARK: - WebSocket Integration
+    private var webSocketService: WebSocketService?
+    private var sessionMessaging: SessionMessagingService?
     
     var isMyTurn: Bool {
         guard let session = session, let myParty = myParty else { return false }
@@ -32,7 +31,10 @@ class SessionViewModel: ObservableObject {
     
     var isWaitingForParticipant: Bool {
         guard let session = session else { return false }
-        return session.status == .waiting && session.partyBId.isEmpty
+        if isHost {
+            return session.status == .waiting && session.partyBId.isEmpty
+        }
+        return session.status == .waiting
     }
     
     init(session: Session? = nil, userId: String? = nil, userName: String = "User", isHost: Bool = false) {
@@ -50,6 +52,8 @@ class SessionViewModel: ObservableObject {
             } else {
                 addLogEntry(type: .userJoined, message: "\(userName) joined session")
             }
+
+            enableWebSocketSyncIfNeeded()
         } else {
             // For demo: create a mock session
             createMockSession()
@@ -71,15 +75,24 @@ class SessionViewModel: ObservableObject {
             
             // Auto-mute logic
             self.updateMuteStatus()
+
+            // Host is source of truth for shared timer state
+            if self.isHost {
+                self.broadcastCurrentSessionState()
+            }
         }
     }
     
     func endSession() {
         guard var session = session else { return }
         timer?.invalidate()
+        timer = nil
         session.status = .completed
         self.session = session
         addLogEntry(type: .sessionEnded, message: "Session ended by user")
+        if isHost {
+            broadcastCurrentSessionState()
+        }
         showRatingView = true
     }
     
@@ -96,6 +109,7 @@ class SessionViewModel: ObservableObject {
         if session.currentTurnNumber > session.maxTurns {
             session.status = .completed
             timer?.invalidate()
+            timer = nil
             addLogEntry(type: .sessionEnded, message: "Session completed - max turns reached")
             showRatingView = true
         } else {
@@ -104,6 +118,10 @@ class SessionViewModel: ObservableObject {
         }
         
         self.session = session
+
+        if isHost {
+            broadcastCurrentSessionState()
+        }
     }
     
     private func updateMuteStatus() {
@@ -171,6 +189,7 @@ class SessionViewModel: ObservableObject {
         case .pauseSession:
             session.status = .paused
             timer?.invalidate()
+            timer = nil
             addLogEntry(type: .pause, message: "Session paused")
         case .resumeSession:
             session.status = .active
@@ -179,11 +198,16 @@ class SessionViewModel: ObservableObject {
         case .endSession:
             session.status = .completed
             timer?.invalidate()
+            timer = nil
             addLogEntry(type: .sessionEnded, message: "Session ended by mutual agreement")
             showRatingView = true
         }
         
         self.session = session
+
+        if isHost {
+            broadcastCurrentSessionState()
+        }
     }
     
     // MARK: - Logging
@@ -245,6 +269,105 @@ class SessionViewModel: ObservableObject {
     }
     
     // MARK: - Session Management (for real implementation with WebSocket)
+
+    private func enableWebSocketSyncIfNeeded() {
+        guard let session = session else { return }
+
+        webSocketService = WebSocketService(userId: currentUserId, userName: userName)
+        guard let webSocketService = webSocketService else { return }
+
+        sessionMessaging = SessionMessagingService(
+            webSocket: webSocketService,
+            sessionCode: session.sessionCode
+        )
+
+        webSocketService.$error
+            .compactMap { $0 }
+            .sink { [weak self] message in
+                self?.errorMessage = message
+            }
+            .store(in: &cancellables)
+
+        sessionMessaging?.$participantJoinedEvent
+            .compactMap { $0 }
+            .sink { [weak self] joinEvent in
+                self?.handleParticipantJoined(joinEvent)
+            }
+            .store(in: &cancellables)
+
+        sessionMessaging?.$sessionState
+            .compactMap { $0 }
+            .sink { [weak self] state in
+                self?.applyRemoteSessionState(state)
+            }
+            .store(in: &cancellables)
+
+        webSocketService.connect()
+        sessionMessaging?.announceSession(userId: currentUserId, userName: userName)
+    }
+
+    private func handleParticipantJoined(_ joinEvent: SessionMessagingService.SessionSyncMessage) {
+        guard isHost else { return }
+        guard joinEvent.userId != currentUserId else { return }
+        guard var session = session, session.status == .waiting else { return }
+
+        session.partyBId = joinEvent.userId
+        session.status = .active
+        session.turnStartedAt = Date()
+        self.session = session
+        timeRemaining = session.turnDuration
+
+        addLogEntry(type: .userJoined, message: "Party B joined the session")
+        addLogEntry(type: .turnStarted, message: "\(session.currentTurn.displayName) turn started")
+
+        startTimer()
+        updateMuteStatus()
+        broadcastCurrentSessionState()
+    }
+
+    private func applyRemoteSessionState(_ state: SessionMessagingService.SessionSyncMessage) {
+        // Host should remain authoritative; participants follow host broadcasts.
+        guard !isHost else { return }
+        guard state.userId != currentUserId else { return }
+        guard let remote = state.session,
+              var localSession = session else { return }
+
+        localSession.currentTurn = remote.currentTurn == Session.TurnParty.partyA.rawValue ? .partyA : .partyB
+        localSession.currentTurnNumber = remote.currentTurnNumber
+        localSession.status = Session.SessionStatus(rawValue: remote.status) ?? localSession.status
+        localSession.turnStartedAt = Date()
+
+        if localSession.partyAId.isEmpty {
+            localSession.partyAId = state.userId
+        }
+
+        session = localSession
+        timeRemaining = max(0, remote.timeRemaining)
+        updateMuteStatus()
+
+        if localSession.status == .active {
+            if timer == nil {
+                startTimer()
+            }
+        } else {
+            timer?.invalidate()
+            timer = nil
+        }
+    }
+
+    private func broadcastCurrentSessionState() {
+        guard isHost,
+              let session = session,
+              let sessionMessaging = sessionMessaging else { return }
+
+        sessionMessaging.broadcastSessionState(
+            userId: currentUserId,
+            currentTurn: session.currentTurn.rawValue,
+            currentTurnNumber: session.currentTurnNumber,
+            timeRemaining: timeRemaining,
+            status: session.status.rawValue
+        )
+    }
     
     /// Demo function: Simulates another participant joining
     /// Replace with real WebSocket implementation:
@@ -282,5 +405,11 @@ class SessionViewModel: ObservableObject {
         // Start the timer now that both parties are present
         startTimer()
         updateMuteStatus()
+        broadcastCurrentSessionState()
+    }
+
+    deinit {
+        timer?.invalidate()
+        webSocketService?.disconnect()
     }
 }

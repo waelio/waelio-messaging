@@ -33,14 +33,23 @@ class WebSocketService: NSObject, ObservableObject {
         let content: String
     }
     
-    init(serverURL: String = "ws://localhost:8080", userId: String, userName: String) {
-        self.serverURL = serverURL
+    init(serverURL: String? = nil, userId: String, userName: String) {
+        self.serverURL = serverURL ?? Self.defaultServerURL()
         self.userId = userId
         self.userName = userName
         super.init()
         
         let configuration = URLSessionConfiguration.default
         session = URLSession(configuration: configuration, delegate: self, delegateQueue: OperationQueue())
+    }
+
+    private static func defaultServerURL() -> String {
+        if let configured = Bundle.main.object(forInfoDictionaryKey: "WebSocketServerURL") as? String,
+           !configured.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return configured
+        }
+
+        return "wss://waelio-messaging.onrender.com"
     }
     
     // MARK: - Connection
