@@ -68,11 +68,11 @@ struct WelcomApp: App {
         for nestedKey in ["deeplink", "app_link", "link"] {
             if let nestedValue = components.queryItems?.first(where: { $0.name == nestedKey })?.value,
                let nestedURL = URL(string: nestedValue),
-               let nestedComponents = URLComponents(url: nestedURL, resolvingAgainstBaseURL: false),
-               let nestedResult = extractSessionCode(from: nestedURL, components: nestedComponents),
-               let nestedCode = nestedResult.code,
-               !nestedCode.isEmpty {
-                return (nestedCode, "nested:\(nestedKey) -> \(nestedResult.source)")
+               let nestedComponents = URLComponents(url: nestedURL, resolvingAgainstBaseURL: false) {
+                let nestedResult = extractSessionCode(from: nestedURL, components: nestedComponents)
+                if let nestedCode = nestedResult.code, !nestedCode.isEmpty {
+                    return (nestedCode, "nested:\(nestedKey) -> \(nestedResult.source)")
+                }
             }
         }
 
