@@ -19,6 +19,7 @@ struct CreateSessionView: View {
     @State private var showingSession = false
     @State private var showingContactPicker = false
     @State private var showContactsDeniedAlert = false
+    @State private var showBriefSavedToast = false
     @StateObject private var briefDictation = SpeechDictationManager()
     @FocusState private var focusedField: Field?
     
@@ -59,6 +60,13 @@ struct CreateSessionView: View {
                             Text(dictationError)
                                 .font(.caption2)
                                 .foregroundColor(.red)
+                        }
+
+                        if showBriefSavedToast {
+                            Label("Dictation saved", systemImage: "checkmark.circle.fill")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                     }
 
@@ -148,6 +156,17 @@ struct CreateSessionView: View {
                             userName: userName,
                             isHost: true
                         ))
+                    }
+                }
+            }
+            .onChange(of: briefDictation.lastSavedAt) { _ in
+                guard briefDictation.lastSavedAt != nil else { return }
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showBriefSavedToast = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showBriefSavedToast = false
                     }
                 }
             }

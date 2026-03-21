@@ -7,12 +7,15 @@ import Combine
 final class SpeechDictationManager: ObservableObject {
     @Published var isRecording = false
     @Published var errorMessage: String?
+    @Published var lastSavedAt: Date?
 
     private let audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale.current)
     private var baseText: String = ""
+    private var lastStableText: String = ""
+    private var onUpdateHandler: ((String) -> Void)?
 
     func toggleDictation(currentText: String, onUpdate: @escaping (String) -> Void) {
         if isRecording {
@@ -23,6 +26,16 @@ final class SpeechDictationManager: ObservableObject {
     }
 
     func stopDictation() {
+        let hasSavedContent = !lastStableText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        if let onUpdateHandler {
+            onUpdateHandler(lastStableText)
+        }
+
+        if hasSavedContent {
+            lastSavedAt = Date()
+        }
+
         recognitionTask?.cancel()
         recognitionTask = nil
 
@@ -34,6 +47,7 @@ final class SpeechDictationManager: ObservableObject {
             audioEngine.inputNode.removeTap(onBus: 0)
         }
 
+        onUpdateHandler = nil
         isRecording = false
     }
 
@@ -51,6 +65,8 @@ final class SpeechDictationManager: ObservableObject {
             }
 
             self.baseText = currentText.trimmingCharacters(in: .whitespacesAndNewlines)
+            self.lastStableText = currentText
+            self.onUpdateHandler = onUpdate
             self.errorMessage = nil
 
             self.recognitionTask?.cancel()
@@ -94,7 +110,11 @@ final class SpeechDictationManager: ObservableObject {
                     let combined = self.baseText.isEmpty
                         ? spoken
                         : (spoken.isEmpty ? self.baseText : "\(self.baseText) \(spoken)")
-                    onUpdate(combined)
+
+                    if !combined.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        self.lastStableText = combined
+                        onUpdate(combined)
+                    }
 
                     if result.isFinal {
                         self.stopDictation()
