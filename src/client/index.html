@@ -309,24 +309,11 @@
         socket.on("user-joined", (msg) => {
           console.log("User joined", msg.id);
           showToast(`🟢 ${msg.id.substring(0, 8)} joined`, "joined");
-          // Shoot a meteor in from a random canvas edge
-          const edge = Math.floor(Math.random() * 4);
-          let fromX, fromY;
+          // Shoot a meteor in from the right edge
           const W = window.innerWidth,
             H = window.innerHeight;
-          if (edge === 0) {
-            fromX = Math.random() * W;
-            fromY = -30;
-          } else if (edge === 1) {
-            fromX = W + 30;
-            fromY = Math.random() * H;
-          } else if (edge === 2) {
-            fromX = Math.random() * W;
-            fromY = H + 30;
-          } else {
-            fromX = -30;
-            fromY = Math.random() * H;
-          }
+          const fromX = W + 40;
+          const fromY = Math.random() * H;
           joinAnimations.push({ id: msg.id, fromX, fromY, progress: 0 });
         });
 
