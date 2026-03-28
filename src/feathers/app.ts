@@ -29,7 +29,7 @@ import { RoomsService } from './services/rooms.js';
  *   'messages created'   →  Feathers service event   (message object)
  *   'rooms created'      →  Feathers service event   { roomId, userId, partnerId }
  */
-export async function createFeathersApp(httpServer: HttpServer, mongoURI?: string) {
+export async function createFeathersApp(httpServer: HttpServer, mongoURI?: string, allowedOrigins: string[] = []) {
     const messagesService = new MessagesService(mongoURI);
     await messagesService.ready;
 
@@ -37,7 +37,11 @@ export async function createFeathersApp(httpServer: HttpServer, mongoURI?: strin
 
     // ── Real-time only: Socket.io transport, no REST ─────────────────────────
     app.configure(
-        socketio((io) => {
+        socketio({
+            cors: allowedOrigins.length
+                ? { origin: allowedOrigins, credentials: true }
+                : { origin: true, credentials: true },
+        }, (io) => {
             // Socket middleware: runs before 'connection' event handlers.
             // Sets clientId on socket.feathers so channels.ts can read it.
             io.use((socket, next) => {

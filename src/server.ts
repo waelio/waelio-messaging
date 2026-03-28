@@ -7,11 +7,30 @@ import { createFeathersApp } from './feathers/app.js';
 
 const MONGO_URI = process.env.MONGO_URI;
 
+// Comma-separated list of allowed origins, e.g. "https://waelio-messaging.netlify.app"
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
 // --- HTTP Server Setup with Express (static files only) ---
 const app = express();
 const server = http.createServer(app);
 
 export { app, server };
+
+// CORS for HTTP polling leg of Socket.io
+app.use((req, res, next) => {
+    const origin = req.headers.origin || '';
+    if (ALLOWED_ORIGINS.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    }
+    if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
+    next();
+});
 
 // --- Static File Serving ---
 const __filename = fileURLToPath(import.meta.url);
@@ -22,7 +41,7 @@ export async function startServer() {
     const PORT = process.env.PORT || 8080;
 
     // Attach Feathers + Socket.io to the HTTP server (no REST transport)
-    await createFeathersApp(server, MONGO_URI);
+    await createFeathersApp(server, MONGO_URI, ALLOWED_ORIGINS);
 
     // Start listening
     await new Promise<void>((resolve) => {
