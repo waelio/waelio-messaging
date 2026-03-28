@@ -74,6 +74,7 @@
   <body>
     <div id="toasts"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/p5.min.js"></script>
+    <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
     <script>
       function showToast(text, type = "joined") {
         const container = document.getElementById("toasts");
@@ -83,9 +84,6 @@
         container.appendChild(el);
         setTimeout(() => el.remove(), 3100);
       }
-      // WebSocket URL
-      const WS_URL =
-        (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
 
       // State variables
       let connected = false;
@@ -94,11 +92,6 @@
       let users = [];
       let messages = [];
       let selectedUser = null;
-      let reconnecting = false;
-      let retryAttempt = 0;
-      let nextRetryIn = 0;
-      let reconnectTimer = null;
-      let countdownTimer = null;
 
       // Canvas variables
       let userPositions = {};
@@ -142,9 +135,8 @@
 
         // Draw message animations (flames/meteors)
         messageAnimations.forEach((anim, index) => {
-          anim.progress += 0.015; // Slower for better visibility
+          anim.progress += 0.015;
 
-          // Apply offset delay for second flame
           const effectiveProgress = Math.max(
             0,
             anim.progress - (anim.offset || 0),
@@ -163,34 +155,27 @@
           const x = lerp(fromPos.x, toPos.x, effectiveProgress);
           const y = lerp(fromPos.y, toPos.y, effectiveProgress);
 
-          // Flame/meteor appearance
-          const size = 20 + sin(effectiveProgress * PI * 4) * 8; // Bigger pulsing size
-          const alpha = (1 - effectiveProgress) * 255; // Fade out
+          const size = 20 + sin(effectiveProgress * PI * 4) * 8;
+          const alpha = (1 - effectiveProgress) * 255;
 
-          // Color based on message type and flame
           if (anim.broadcast) {
-            fill(255, 255, 0, alpha); // Yellow for broadcast
+            fill(255, 255, 0, alpha);
           } else {
-            // Red-orange flame colors
-            if (anim.flameId === 0) {
-              fill(255, 100, 0, alpha); // Orange flame
-            } else {
-              fill(255, 50, 0, alpha); // Red flame
-            }
+            fill(
+              anim.flameId === 0
+                ? color(255, 100, 0, alpha)
+                : color(255, 50, 0, alpha),
+            );
           }
 
           noStroke();
-          // Draw elongated flame shape
           ellipse(x, y, size * 1.5, size * 0.7);
-
-          // Add a small glow/trail effect
           fill(255, 200, 0, alpha * 0.3);
           ellipse(x, y, size * 2.5, size * 1.2);
         });
       }
 
       function mousePressed() {
-        // Find clicked user
         const centerX = width / 2;
         const centerY = height / 2;
         const radius = min(width, height) / 4;
@@ -201,124 +186,111 @@
           const y = centerY + sin(angle) * radius;
           const d = dist(mouseX, mouseY, x, y);
           if (d < 40 && user !== clientId) {
-            // within circle
             selectedUser = user;
             sendMessage(false);
           }
         });
       }
 
-      // WebSocket functions (adapted from original)
-      function clearReconnectTimers() {
-        if (reconnectTimer) {
-          clearTimeout(reconnectTimer);
-          reconnectTimer = null;
+      function addFlameAnimation(from, to, broadcast) {
+        for (let i = 0; i < 2; i++) {
+          messageAnimations.push({
+            from,
+            to,
+            broadcast,
+            progress: 0,
+            offset: i * 0.1,
+            flameId: i,
+          });
         }
-        if (countdownTimer) {
-          clearInterval(countdownTimer);
-          countdownTimer = null;
-        }
-      }
-
-      function scheduleReconnect() {
-        if (reconnectTimer) return;
-        reconnecting = true;
-        const delays = [1000, 2000, 5000, 10000, 20000, 30000];
-        const idx = Math.min(retryAttempt, delays.length - 1);
-        const delay = delays[idx];
-        nextRetryIn = Math.ceil(delay / 1000);
-        clearReconnectTimers();
-        countdownTimer = setInterval(() => {
-          if (nextRetryIn > 0) nextRetryIn -= 1;
-        }, 1000);
-        reconnectTimer = setTimeout(() => {
-          reconnectTimer = null;
-          connect();
-        }, delay);
-        retryAttempt += 1;
       }
 
       function connect() {
-        socket = new WebSocket(WS_URL);
-        socket.onopen = () => {
+        socket = io();
+
+        socket.on("connect", () => {
           connected = true;
-          reconnecting = false;
-          clearReconnectTimers();
-          console.log("Connected");
-          retryAttempt = 0;
-        };
-        socket.onmessage = (ev) => {
-          const msg = JSON.parse(ev.data);
-          switch (msg.type) {
-            case "register-success":
-              clientId = msg.id;
-              console.log("Registered as", clientId);
-              break;
-            case "user-list":
-              users = msg.users;
-              console.log("Users:", users);
-              break;
-            case "message":
+          console.log("Connected, socket id:", socket.id);
+          // Request history after connecting
+          socket.emit("find", "messages", {}, (err, history) => {
+            if (err) return console.error("History error:", err);
+            (history || []).forEach((h) =>
               messages.push({
-                ...msg,
-                ts: new Date(),
-                me: msg.from === clientId,
-              });
-              // Add 2 flame animations per message
-              for (let i = 0; i < 2; i++) {
-                messageAnimations.push({
-                  from: msg.from,
-                  to: msg.to || (msg.isBroadcast ? null : clientId),
-                  broadcast: msg.isBroadcast,
-                  progress: 0,
-                  offset: i * 0.1, // Slight delay between flames
-                  flameId: i,
-                });
-              }
-              break;
-            case "message-history":
-              msg.history.forEach((h) =>
-                messages.push({
-                  from: h.senderId,
-                  payload: h.payload,
-                  isBroadcast: h.isBroadcast,
-                  ts: new Date(h.timestamp),
-                  me: h.senderId === clientId,
-                }),
-              );
-              break;
-            case "user-joined":
-              console.log("User joined", msg.id);
-              showToast(`🟢 ${msg.id.substring(0, 8)} joined`, "joined");
-              break;
-            case "user-left":
-              console.log("User left", msg.id);
-              showToast(`🔴 ${msg.id.substring(0, 8)} left`, "left");
-              break;
-            case "error":
-              console.error("Error", msg.message);
-              break;
-          }
-        };
-        socket.onclose = () => {
+                from: h.senderId,
+                to: h.recipientId,
+                payload: h.payload,
+                isBroadcast: h.isBroadcast,
+                ts: new Date(h.timestamp),
+                me: h.senderId === clientId,
+              }),
+            );
+          });
+        });
+
+        socket.on("disconnect", () => {
           connected = false;
           console.log("Disconnected");
-          scheduleReconnect();
-        };
-        socket.onerror = () => console.error("Socket error");
+        });
+
+        socket.on("register-success", (msg) => {
+          clientId = msg.id;
+          console.log("Registered as", clientId);
+        });
+
+        socket.on("user-list", (msg) => {
+          users = msg.users;
+          console.log("Users:", users);
+        });
+
+        socket.on("user-joined", (msg) => {
+          console.log("User joined", msg.id);
+          showToast(`🟢 ${msg.id.substring(0, 8)} joined`, "joined");
+        });
+
+        socket.on("user-left", (msg) => {
+          console.log("User left", msg.id);
+          showToast(`🔴 ${msg.id.substring(0, 8)} left`, "left");
+        });
+
+        // Feathers service event: 'messages created'
+        socket.on("messages created", (msg) => {
+          messages.push({
+            from: msg.senderId,
+            to: msg.recipientId,
+            payload: msg.payload,
+            isBroadcast: msg.isBroadcast,
+            ts: new Date(msg.timestamp),
+            me: msg.senderId === clientId,
+          });
+          addFlameAnimation(
+            msg.senderId,
+            msg.isBroadcast
+              ? null
+              : msg.senderId === clientId
+                ? msg.recipientId
+                : clientId,
+            msg.isBroadcast,
+          );
+        });
       }
 
       function sendMessage(broadcast = false) {
+        if (!socket || !connected) return;
         const text = "Hello!";
         if (broadcast) {
-          socket?.send(JSON.stringify({ type: "broadcast", payload: text }));
-        } else {
-          const dest = selectedUser;
-          if (dest) {
-            socket?.send(
-              JSON.stringify({ type: "route", to: dest, payload: text }),
-            );
-          }
+          socket.emit(
+            "create",
+            "messages",
+            { type: "broadcast", payload: text },
+            {},
+          );
+        } else if (selectedUser) {
+          socket.emit(
+            "create",
+            "messages",
+            { type: "route", to: selectedUser, payload: text },
+            {},
+          );
         }
       }
 
