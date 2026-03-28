@@ -270,7 +270,8 @@
       }
 
       function connect() {
-        socket = io("__BACKEND_URL__");
+        const _backendUrl = "__BACKEND_URL__";
+        socket = io(_backendUrl || undefined);
 
         socket.on("connect", () => {
           connected = true;
