@@ -6,7 +6,6 @@ import { fileURLToPath } from 'url';
 import { MessagingHub } from './MessagingHub.js';
 
 // Use the PORT environment variable provided by Render, with a fallback for local development
-const PORT = process.env.PORT || 8080;
 const MONGO_URI = process.env.MONGO_URI;
 
 // --- HTTP Server Setup with Express ---
@@ -16,15 +15,15 @@ const server = http.createServer(app);
 // Parse JSON bodies for API endpoints
 app.use(express.json());
 
+export { app, server };
+
 // --- Static File Serving ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-/**
- * Initializes the MessagingHub and starts the HTTP server.
- */
-async function startServer() {
+export async function startServer() {
+    const PORT = process.env.PORT || 8080;
     // Create an instance of our messaging hub, passing it the server
     // and any configuration options it needs.
     const hub = new MessagingHub(server, { mongoURI: MONGO_URI });
@@ -57,8 +56,11 @@ async function startServer() {
     });
 
     // Start the HTTP server
-    server.listen(PORT, () => {
-        console.log(`[Server] HTTP and WebSocket server started on port ${PORT}`);
+    await new Promise<void>((resolve) => {
+        server.listen(PORT, () => {
+            console.log(`[Server] HTTP and WebSocket server started on port ${PORT}`);
+            resolve();
+        });
     });
 
     // Graceful shutdown
@@ -66,12 +68,16 @@ async function startServer() {
         await hub.shutdown();
         server.close(() => {
             console.log('[Server] HTTP server closed.');
-            process.exit(0);
+            if (process.env.NODE_ENV !== 'test') process.exit(0);
         });
     };
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);
+
+    return hub;
 }
 
 // --- Initialize Server ---
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+    startServer();
+}

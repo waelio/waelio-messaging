@@ -1,0 +1,23 @@
+{
+    "extension": [
+        ".ts"
+    ],
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "test/**/*.ts",
+        "**/*.d.ts"
+    ],
+    "reporter": [
+        "text",
+        "html",
+        "lcov"
+    ],
+    "all": true,
+    "src": [
+        "src"
+    ],
+    "sourceMap": true,
+    "instrument": false
+}

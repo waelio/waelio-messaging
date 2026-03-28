@@ -33,8 +33,8 @@ interface Message {
     timestamp: Date;
 }
 
-const DB_HISTORY_LIMIT = 100;
-const IN_MEMORY_HISTORY_LIMIT = 10;
+const DB_HISTORY_LIMIT = 1000;
+const IN_MEMORY_HISTORY_LIMIT = 100;
 const DB_NAME = 'messagingApp';
 
 export class MessagingHub {
@@ -45,7 +45,7 @@ export class MessagingHub {
      */
     private mongoURI?: string;
     private mongoClient: MongoClient | null;
-    private messagesCollection: Collection | any; // Allow mock object
+    private messagesCollection: Collection<Message> | any; // Allow mock object
     private clients: Map<string, ExtendedWebSocket> = new Map();
     private wss: WebSocketServer;
     public ready: Promise<void>;
@@ -104,9 +104,8 @@ export class MessagingHub {
                 let filtered = inMemoryMessages;
                 if (query.$or) {
                     const orClauses = query.$or;
-                    const recipientId = orClauses.find((c: any) => c.recipientId)?.recipientId;
-                    const senderId = orClauses.find((c: any) => c.senderId)?.senderId;
-                    filtered = inMemoryMessages.filter(msg => msg.isBroadcast || msg.senderId === senderId || msg.recipientId === recipientId);
+                    const ids = orClauses.map((c: any) => c.recipientId || c.senderId).filter(Boolean);
+                    filtered = inMemoryMessages.filter(msg => msg.isBroadcast || ids.includes(msg.senderId) || ids.includes(msg.recipientId));
                 }
                 return {
                     sort: () => ({ limit: () => ({ toArray: () => Promise.resolve(filtered) }) })
