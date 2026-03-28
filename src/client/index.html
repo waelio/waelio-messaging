@@ -136,7 +136,7 @@
 
         // Draw join animations — meteor flying in from edge with user ID label
         joinAnimations.forEach((anim, index) => {
-          anim.progress += 0.01;
+          anim.progress += 0.012;
           if (anim.progress >= 1) {
             joinAnimations.splice(index, 1);
             return;
@@ -145,21 +145,55 @@
           const x = lerp(anim.fromX, toPos.x, anim.progress);
           const y = lerp(anim.fromY, toPos.y, anim.progress);
           const alpha =
-            anim.progress < 0.85 ? 255 : ((1 - anim.progress) / 0.15) * 255;
-          const size = 22;
+            anim.progress < 0.8 ? 255 : ((1 - anim.progress) / 0.2) * 255;
 
-          // Glow
+          // Tail: series of fading line segments behind the head
+          const tailLen = 10;
+          for (let t = 1; t <= tailLen; t++) {
+            const tp = Math.max(0, anim.progress - t * 0.018);
+            const tx = lerp(anim.fromX, toPos.x, tp);
+            const ty = lerp(anim.fromY, toPos.y, tp);
+            const tailAlpha = alpha * (1 - t / tailLen);
+            const sw = (1 - t / tailLen) * 4;
+            strokeWeight(sw);
+            stroke(180, 230, 255, tailAlpha);
+            line(
+              lerp(
+                anim.fromX,
+                toPos.x,
+                Math.max(0, anim.progress - (t - 1) * 0.018),
+              ),
+              lerp(
+                anim.fromY,
+                toPos.y,
+                Math.max(0, anim.progress - (t - 1) * 0.018),
+              ),
+              tx,
+              ty,
+            );
+          }
+
+          // Star head: a bright 4-point star shape
           noStroke();
-          fill(100, 220, 255, alpha * 0.25);
-          ellipse(x, y, size * 3, size * 1.4);
-          // Meteor body
-          fill(100, 220, 255, alpha);
-          ellipse(x, y, size * 1.6, size * 0.75);
-          // Label
-          fill(255, alpha);
+          fill(255, 255, 255, alpha);
+          const s = 8;
+          push();
+          translate(x, y);
+          beginShape();
+          for (let i = 0; i < 8; i++) {
+            const r = i % 2 === 0 ? s : s * 0.35;
+            const a = (TWO_PI / 8) * i - HALF_PI;
+            vertex(cos(a) * r, sin(a) * r);
+          }
+          endShape(CLOSE);
+          pop();
+
+          // Label above the head
+          noStroke();
+          fill(200, 240, 255, alpha);
           textAlign(CENTER, CENTER);
-          textSize(13);
-          text(anim.id.substring(0, 8), x, y - size);
+          textSize(12);
+          text(anim.id.substring(0, 8), x, y - 18);
           textSize(20);
         });
 
