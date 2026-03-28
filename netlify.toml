@@ -1,0 +1,8 @@
+[build]
+  command   = "npm ci --include=dev && npm run build"
+  publish   = "public"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Set this in the Netlify dashboard to point at your Render backend:
+  # BACKEND_URL = "https://waelio-messagin-live.onrender.com"

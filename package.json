@@ -62,7 +62,7 @@
         "test:coverage": "NODE_ENV=test c8 mocha --node-option import=tsx 'test/**/*.ts'",
         "build": "npm run clean && tsc -p tsconfig.json && tsc -p tsconfig.client.json && npm run generate:icons && npm run copy-files",
         "generate:icons": "node scripts/generate-icons.mjs",
-        "copy-files": "mkdir -p public && cp src/client/index.html public/index.html && cp src/client/sw.js public/sw.js && for f in favicon.ico favicon.png favicon.svg apple-touch-icon.png site.webmanifest favicon-16x16.png favicon-32x32.png; do [ -f src/client/$f ] && cp src/client/$f public/$f || true; [ -f $f ] && cp $f public/$f || true; done; [ -d src/client/static ] && cp -R src/client/static/* public/ 2>/dev/null || true",
+        "copy-files": "mkdir -p public && cp src/client/index.html public/index.html && sed -i.bak \"s|__BACKEND_URL__|${BACKEND_URL:-}|g\" public/index.html && rm -f public/index.html.bak && cp src/client/sw.js public/sw.js && for f in favicon.ico favicon.png favicon.svg apple-touch-icon.png site.webmanifest favicon-16x16.png favicon-32x32.png; do [ -f src/client/$f ] && cp src/client/$f public/$f || true; [ -f $f ] && cp $f public/$f || true; done; [ -d src/client/static ] && cp -R src/client/static/* public/ 2>/dev/null || true",
         "start": "node dist/server.js",
         "dev": "tsx src/server.ts",
         "docker:up": "docker compose up --build -d",
