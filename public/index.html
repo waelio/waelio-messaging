@@ -33,12 +33,10 @@
     </style>
   </head>
   <body>
+    <!-- Socket.io client is auto-served by the socket.io server -->
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/p5.min.js"></script>
     <script>
-      // WebSocket URL
-      const WS_URL =
-        (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
-
       // State variables
       let connected = false;
       let socket = null;
@@ -46,11 +44,7 @@
       let users = [];
       let messages = [];
       let selectedUser = null;
-      let reconnecting = false;
-      let retryAttempt = 0;
-      let nextRetryIn = 0;
-      let reconnectTimer = null;
-      let countdownTimer = null;
+      let currentRoomId = null;
 
       // Canvas variables
       let userPositions = {};
@@ -160,113 +154,103 @@
         });
       }
 
-      // WebSocket functions (adapted from original)
-      function clearReconnectTimers() {
-        if (reconnectTimer) {
-          clearTimeout(reconnectTimer);
-          reconnectTimer = null;
-        }
-        if (countdownTimer) {
-          clearInterval(countdownTimer);
-          countdownTimer = null;
-        }
-      }
-
-      function scheduleReconnect() {
-        if (reconnectTimer) return;
-        reconnecting = true;
-        const delays = [1000, 2000, 5000, 10000, 20000, 30000];
-        const idx = Math.min(retryAttempt, delays.length - 1);
-        const delay = delays[idx];
-        nextRetryIn = Math.ceil(delay / 1000);
-        clearReconnectTimers();
-        countdownTimer = setInterval(() => {
-          if (nextRetryIn > 0) nextRetryIn -= 1;
-        }, 1000);
-        reconnectTimer = setTimeout(() => {
-          reconnectTimer = null;
-          connect();
-        }, delay);
-        retryAttempt += 1;
-      }
+      // ── Socket.io / Feathers wire-protocol helpers ──────────────────────────
 
       function connect() {
-        socket = new WebSocket(WS_URL);
-        socket.onopen = () => {
+        socket = io(location.origin, { transports: ["websocket"] });
+
+        socket.on("connect", () => {
           connected = true;
-          reconnecting = false;
-          clearReconnectTimers();
-          console.log("Connected");
-          retryAttempt = 0;
-        };
-        socket.onmessage = (ev) => {
-          const msg = JSON.parse(ev.data);
-          switch (msg.type) {
-            case "register-success":
-              clientId = msg.id;
-              console.log("Registered as", clientId);
-              break;
-            case "user-list":
-              users = msg.users;
-              console.log("Users:", users);
-              break;
-            case "message":
+          console.log("Connected, socket id:", socket.id);
+          // Load message history once connected
+          socket.emit("messages::find", {}, (err, history) => {
+            if (err) return console.error("History error:", err);
+            history.forEach((h) =>
               messages.push({
-                ...msg,
-                ts: new Date(),
-                me: msg.from === clientId,
-              });
-              // Add 2 flame animations per message
-              for (let i = 0; i < 2; i++) {
-                messageAnimations.push({
-                  from: msg.from,
-                  to: msg.to || (msg.isBroadcast ? null : clientId),
-                  broadcast: msg.isBroadcast,
-                  progress: 0,
-                  offset: i * 0.1, // Slight delay between flames
-                  flameId: i,
-                });
-              }
-              break;
-            case "message-history":
-              msg.history.forEach((h) =>
-                messages.push({
-                  from: h.senderId,
-                  payload: h.payload,
-                  isBroadcast: h.isBroadcast,
-                  ts: new Date(h.timestamp),
-                  me: h.senderId === clientId,
-                }),
-              );
-              break;
-            case "user-joined":
-              console.log("User joined", msg.id);
-              break;
-            case "user-left":
-              console.log("User left", msg.id);
-              break;
-            case "error":
-              console.error("Error", msg.message);
-              break;
-          }
-        };
-        socket.onclose = () => {
+                from: h.senderId,
+                payload: h.payload,
+                isBroadcast: h.isBroadcast,
+                ts: new Date(h.timestamp),
+                me: h.senderId === clientId,
+              }),
+            );
+          });
+        });
+
+        socket.on("disconnect", () => {
           connected = false;
           console.log("Disconnected");
-          scheduleReconnect();
-        };
-        socket.onerror = () => console.error("Socket error");
+        });
+
+        // Server-emitted presence events
+        socket.on("register-success", (data) => {
+          clientId = data.id;
+          console.log("Registered as", clientId);
+        });
+
+        socket.on("user-list", (data) => {
+          users = data.users;
+          console.log("Users:", users);
+        });
+
+        socket.on("user-joined", (data) => console.log("User joined", data.id));
+        socket.on("user-left", (data) => console.log("User left", data.id));
+
+        // Feathers service event: 'messages created'
+        socket.on("messages created", (msg) => {
+          messages.push({
+            from: msg.senderId,
+            to: msg.recipientId,
+            payload: msg.payload,
+            isBroadcast: msg.isBroadcast,
+            ts: new Date(msg.timestamp),
+            me: false, // incoming — sender already has it locally
+          });
+          for (let i = 0; i < 2; i++) {
+            messageAnimations.push({
+              from: msg.senderId,
+              to: msg.recipientId || (msg.isBroadcast ? null : clientId),
+              broadcast: msg.isBroadcast,
+              progress: 0,
+              offset: i * 0.1,
+              flameId: i,
+            });
+          }
+        });
+
+        // Feathers service event: 'rooms created'
+        socket.on("rooms created", (room) => {
+          currentRoomId = room.roomId;
+          console.log(
+            "Joined room",
+            room.roomId,
+            "with",
+            room.partnerId === clientId ? room.userId : room.partnerId,
+          );
+        });
       }
 
       function sendMessage(broadcast = false) {
         const text = "Hello!";
         if (broadcast) {
-          socket?.send(JSON.stringify({ type: "broadcast", payload: text }));
+          socket?.emit(
+            "messages::create",
+            { type: "broadcast", payload: text },
+            {},
+            (err) => {
+              if (err) console.error("Broadcast error:", err);
+            },
+          );
         } else {
           const dest = selectedUser;
           if (dest) {
-            socket?.send(
-              JSON.stringify({ type: "route", to: dest, payload: text }),
+            socket?.emit(
+              "messages::create",
+              { type: "route", to: dest, payload: text },
+              {},
+              (err) => {
+                if (err) console.error("Route error:", err);
+              },
             );
           }
         }

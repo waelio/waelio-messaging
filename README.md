@@ -5,7 +5,7 @@
 [![CI](https://github.com/waelio/waelio-messaging/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/waelio/waelio-messaging/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Minimal real-time WebSocket messaging hub: direct, broadcast, user list, history, optional Mongo persistence, typed API.
+Real-time messaging hub powered by [FeathersJS](https://feathersjs.com) channels and Socket.io — direct messages, broadcasts, private rooms, user lists, history, and optional MongoDB persistence.
 
 Live Demo: https://waelio-messaging.onrender.com/
 
@@ -13,10 +13,12 @@ Live Demo: https://waelio-messaging.onrender.com/
 
 `waelio-messaging` gives you:
 
-- a WebSocket messaging server
+- a real-time Socket.io server built on **FeathersJS channels** (no REST)
 - a ready-to-use chat UI (`public/index.html`)
-- direct message + broadcast + message history
-- optional MongoDB persistence
+- direct message + broadcast + private rooms + message history
+- optional MongoDB persistence (falls back to in-memory automatically)
+
+The original `MessagingHub` (raw `ws`) is kept as a standalone library export. The server now uses a Feathers app layered on top, replacing the hand-rolled broadcast loops with declarative channel routing.
 
 If you just want to run and chat locally, use the 5-minute guide below.
 
@@ -121,13 +123,30 @@ npm start         # run compiled server
 ```ts
 import http from "http";
 import express from "express";
+import { createFeathersApp } from "./src/feathers/app.js";
+
+const app = express();
+const server = http.createServer(app);
+
+// Socket.io + Feathers channels, no REST
+// Optional: pass a MongoDB URI as second argument
+await createFeathersApp(server, process.env.MONGO_URI);
+
+server.listen(8080, () => console.log("ready"));
+```
+
+If you prefer the original raw-`ws` hub as a library:
+
+```ts
+import http from "http";
+import express from "express";
 import { MessagingHub } from "@waelio/messaging";
 
 const app = express();
 const server = http.createServer(app);
 
-// Optional: { mongoURI: 'mongodb+srv://...' }
-const hub = new MessagingHub(server);
+const hub = new MessagingHub(server, { mongoURI: process.env.MONGO_URI });
+await hub.ready;
 
 server.listen(8080, () => console.log("ready"));
 ```
@@ -158,35 +177,62 @@ Manual:
 Attributes: target, message, broadcast, ws-url, send-on (connect|manual|click), reconnect.
 Events: connected, disconnected, sent, error.
 
+## Architecture
+
+```
+src/
+  feathers/
+    app.ts          ← Feathers app, Socket.io transport (no REST)
+    channels.ts     ← Declarative channel routing rules
+    services/
+      messages.ts   ← create (send) + find (history)
+      rooms.ts      ← create (join private room)
+  MessagingHub.ts   ← Original raw-ws hub (library export, unchanged)
+  server.ts         ← HTTP server entry point
+public/
+  index.html        ← p5.js canvas UI using socket.io-client
+```
+
+### How Feathers channels replace the old broadcast loops
+
+| Scenario               | Channel used                                  |
+| ---------------------- | --------------------------------------------- |
+| Direct message         | `direct/<recipientId>`                        |
+| Broadcast              | `all` (filtered to exclude sender)            |
+| Room message           | `rooms/<roomId>` (filtered to exclude sender) |
+| Room join notification | `direct/<userId>` + `direct/<partnerId>`      |
+
+Each connected socket is placed in `all` and `direct/<id>` on connect. When two clients join a room their sockets are also added to `rooms/<roomId>`. Feathers `service.publish()` in `channels.ts` decides which channel receives each service event — no manual looping required.
+
 ## Protocol (Summary)
 
-Client → Server:
+### Client → Server (Socket.io emit)
 
-- `route` { to, payload }
-- `broadcast` { payload }
-- `get-history` {}
-- typing: `start-typing` / `stop-typing`
-- room: `join-room` { with }, `room-message` { payload }
+| Old `ws` message type | New Feathers call                                                   |
+| --------------------- | ------------------------------------------------------------------- |
+| `route`               | `socket.emit('messages::create', { type:'route', to, payload })`    |
+| `broadcast`           | `socket.emit('messages::create', { type:'broadcast', payload })`    |
+| `get-history`         | `socket.emit('messages::find', {}, callback)`                       |
+| `join-room`           | `socket.emit('rooms::create', { with: partnerId })`                 |
+| `room-message`        | `socket.emit('messages::create', { type:'room-message', payload })` |
+| `start-typing`        | `socket.emit('start-typing')`                                       |
+| `stop-typing`         | `socket.emit('stop-typing')`                                        |
 
-Server → Client:
+### Server → Client (Socket.io events)
 
-- `register-success` { id }
-- `user-list` { users[] }
-- `message` { from, payload, isBroadcast? }
-- `message-history` { history[] }
-- `user-typing` { id } / `user-stopped-typing` { id }
-- `joined-room` { roomId, with }
-- `partner-left-room` { roomId }
-- `user-joined` { id, ts }
-- `user-left` { id, ts }
-- `error` { message }
+- `register-success` `{ id }` — your assigned client ID
+- `user-list` `{ users[] }` — full list of connected IDs
+- `user-joined` `{ id, ts }` / `user-left` `{ id, ts }`
+- `user-typing` `{ id }` / `user-stopped-typing` `{ id }`
+- `messages created` `{ senderId, recipientId, payload, isBroadcast, roomId, timestamp }` — Feathers service event
+- `rooms created` `{ roomId, userId, partnerId }` — Feathers service event
 
 ## Persistence (Optional)
 
-Provide `mongoURI` to keep more than in-memory history & survive restarts.
+Pass a MongoDB URI to `createFeathersApp` (or `MessagingHub`) to persist messages across restarts. Without it, an in-memory store is used automatically (last 100 messages).
 
 ```ts
-new MessagingHub(server, { mongoURI: process.env.MONGO_URI });
+await createFeathersApp(server, process.env.MONGO_URI);
 ```
 
 ## Release Scripts

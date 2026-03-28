@@ -26,6 +26,8 @@
     "license": "MIT",
     "description": "A real-time messaging application with direct & broadcast messages, user lists, and optional MongoDB persistence.",
     "dependencies": {
+        "@feathersjs/feathers": "^5.0.43",
+        "@feathersjs/socketio": "^5.0.43",
         "@waelio/ustore": "^1.0.8",
         "dotenv": "^16.4.5",
         "express": "^4.21.2",
