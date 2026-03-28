@@ -24,6 +24,9 @@
     ],
     "author": "Waelio",
     "license": "MIT",
+    "engines": {
+        "node": ">=22"
+    },
     "description": "A real-time messaging application with direct & broadcast messages, user lists, and optional MongoDB persistence.",
     "dependencies": {
         "@feathersjs/feathers": "^5.0.43",
