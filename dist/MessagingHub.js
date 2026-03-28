@@ -2,8 +2,8 @@ import { WebSocketServer } from 'ws';
 import { MongoClient } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import { uStore } from '@waelio/ustore';
-const DB_HISTORY_LIMIT = 100;
-const IN_MEMORY_HISTORY_LIMIT = 10;
+const DB_HISTORY_LIMIT = 1000;
+const IN_MEMORY_HISTORY_LIMIT = 100;
 const DB_NAME = 'messagingApp';
 export class MessagingHub {
     /**
@@ -68,9 +68,8 @@ export class MessagingHub {
                 let filtered = inMemoryMessages;
                 if (query.$or) {
                     const orClauses = query.$or;
-                    const recipientId = orClauses.find((c) => c.recipientId)?.recipientId;
-                    const senderId = orClauses.find((c) => c.senderId)?.senderId;
-                    filtered = inMemoryMessages.filter(msg => msg.isBroadcast || msg.senderId === senderId || msg.recipientId === recipientId);
+                    const ids = orClauses.map((c) => c.recipientId || c.senderId).filter(Boolean);
+                    filtered = inMemoryMessages.filter(msg => msg.isBroadcast || ids.includes(msg.senderId) || ids.includes(msg.recipientId));
                 }
                 return {
                     sort: () => ({ limit: () => ({ toArray: () => Promise.resolve(filtered) }) })

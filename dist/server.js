@@ -3,65 +3,39 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { MessagingHub } from './MessagingHub.js';
-// Use the PORT environment variable provided by Render, with a fallback for local development
-const PORT = process.env.PORT || 8080;
+import { createFeathersApp } from './feathers/app.js';
 const MONGO_URI = process.env.MONGO_URI;
-// --- HTTP Server Setup with Express ---
+// --- HTTP Server Setup with Express (static files only) ---
 const app = express();
 const server = http.createServer(app);
-// Parse JSON bodies for API endpoints
-app.use(express.json());
+export { app, server };
 // --- Static File Serving ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, '..', 'public')));
-/**
- * Initializes the MessagingHub and starts the HTTP server.
- */
-async function startServer() {
-    // Create an instance of our messaging hub, passing it the server
-    // and any configuration options it needs.
-    const hub = new MessagingHub(server, { mongoURI: MONGO_URI });
-    await hub.ready;
-    // Lightweight HTTP API to send messages via POST
-    app.post('/api/route', async (req, res) => {
-        const { to, payload, from } = req.body || {};
-        if (!to || typeof payload === 'undefined') {
-            return res.status(400).json({ ok: false, error: 'Missing "to" or "payload"' });
-        }
-        const ok = await hub.sendToClient(String(to), payload, from ? String(from) : 'api');
-        if (!ok)
-            return res.status(404).json({ ok: false, error: 'Recipient not connected' });
-        return res.json({ ok: true });
-    });
-    app.post('/api/broadcast', async (req, res) => {
-        const { payload, from, exclude } = req.body || {};
-        if (typeof payload === 'undefined') {
-            return res.status(400).json({ ok: false, error: 'Missing "payload"' });
-        }
-        await hub.broadcast(payload, from ? String(from) : 'api', exclude ? String(exclude) : undefined);
-        return res.json({ ok: true });
-    });
-    // API to get list of online users
-    app.get('/api/users', (req, res) => {
-        const users = hub.getConnectedUsers ? hub.getConnectedUsers() : [];
-        return res.json({ users });
-    });
-    // Start the HTTP server
-    server.listen(PORT, () => {
-        console.log(`[Server] HTTP and WebSocket server started on port ${PORT}`);
+export async function startServer() {
+    const PORT = process.env.PORT || 8080;
+    // Attach Feathers + Socket.io to the HTTP server (no REST transport)
+    await createFeathersApp(server, MONGO_URI);
+    // Start listening
+    await new Promise((resolve) => {
+        server.listen(PORT, () => {
+            console.log(`[Server] Listening on http://localhost:${PORT}`);
+            resolve();
+        });
     });
     // Graceful shutdown
-    const shutdown = async () => {
-        await hub.shutdown();
+    const shutdown = () => {
         server.close(() => {
-            console.log('[Server] HTTP server closed.');
-            process.exit(0);
+            console.log('[Server] Closed.');
+            if (process.env.NODE_ENV !== 'test')
+                process.exit(0);
         });
     };
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);
 }
 // --- Initialize Server ---
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+    startServer();
+}
