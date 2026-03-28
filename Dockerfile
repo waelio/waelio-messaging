@@ -1,18 +1,17 @@
-# Use an official Node.js runtime as a parent image
-FROM node:22-alpine
-
-# Set the working directory in the container
+# ---- Build stage ----
+FROM node:22-alpine AS builder
 WORKDIR /usr/src/app
-
-# Copy package.json and install dependencies
-COPY package.json ./
-RUN npm install
-
-# Copy the rest of the application source code
+COPY package*.json ./
+RUN npm ci --include=dev
 COPY . .
+RUN npm run build
 
-# Make port 8080 available to the world outside this container
+# ---- Production stage ----
+FROM node:22-alpine
+WORKDIR /usr/src/app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/public ./public
 EXPOSE 8080
-
-# Define the command to run your app
 CMD [ "npm", "start" ]
