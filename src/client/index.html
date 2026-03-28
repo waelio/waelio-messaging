@@ -30,11 +30,59 @@
       body {
         margin: 0;
       }
+      #toasts {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        pointer-events: none;
+      }
+      .toast {
+        background: rgba(30, 30, 30, 0.92);
+        color: #fff;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-family: Roboto, sans-serif;
+        font-size: 14px;
+        border-left: 4px solid #4caf50;
+        animation: fadeInOut 3s forwards;
+      }
+      .toast.left {
+        border-left-color: #f44336;
+      }
+      @keyframes fadeInOut {
+        0% {
+          opacity: 0;
+          transform: translateX(20px);
+        }
+        15% {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        75% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
     </style>
   </head>
   <body>
+    <div id="toasts"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/p5.min.js"></script>
     <script>
+      function showToast(text, type = "joined") {
+        const container = document.getElementById("toasts");
+        const el = document.createElement("div");
+        el.className = "toast" + (type === "left" ? " left" : "");
+        el.textContent = text;
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 3100);
+      }
       // WebSocket URL
       const WS_URL =
         (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
@@ -241,9 +289,11 @@
               break;
             case "user-joined":
               console.log("User joined", msg.id);
+              showToast(`🟢 ${msg.id.substring(0, 8)} joined`, "joined");
               break;
             case "user-left":
               console.log("User left", msg.id);
+              showToast(`🔴 ${msg.id.substring(0, 8)} left`, "left");
               break;
             case "error":
               console.error("Error", msg.message);
