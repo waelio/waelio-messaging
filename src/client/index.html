@@ -96,6 +96,7 @@
       // Canvas variables
       let userPositions = {};
       let messageAnimations = [];
+      let joinAnimations = [];
 
       function setup() {
         createCanvas(windowWidth, windowHeight);
@@ -131,6 +132,35 @@
           fill(255);
           textAlign(CENTER, CENTER);
           text(user.substring(0, 6), x, y);
+        });
+
+        // Draw join animations — meteor flying in from edge with user ID label
+        joinAnimations.forEach((anim, index) => {
+          anim.progress += 0.01;
+          if (anim.progress >= 1) {
+            joinAnimations.splice(index, 1);
+            return;
+          }
+          const toPos = userPositions[anim.id] || { x: centerX, y: centerY };
+          const x = lerp(anim.fromX, toPos.x, anim.progress);
+          const y = lerp(anim.fromY, toPos.y, anim.progress);
+          const alpha =
+            anim.progress < 0.85 ? 255 : ((1 - anim.progress) / 0.15) * 255;
+          const size = 22;
+
+          // Glow
+          noStroke();
+          fill(100, 220, 255, alpha * 0.25);
+          ellipse(x, y, size * 3, size * 1.4);
+          // Meteor body
+          fill(100, 220, 255, alpha);
+          ellipse(x, y, size * 1.6, size * 0.75);
+          // Label
+          fill(255, alpha);
+          textAlign(CENTER, CENTER);
+          textSize(13);
+          text(anim.id.substring(0, 8), x, y - size);
+          textSize(20);
         });
 
         // Draw message animations (flames/meteors)
@@ -245,6 +275,25 @@
         socket.on("user-joined", (msg) => {
           console.log("User joined", msg.id);
           showToast(`🟢 ${msg.id.substring(0, 8)} joined`, "joined");
+          // Shoot a meteor in from a random canvas edge
+          const edge = Math.floor(Math.random() * 4);
+          let fromX, fromY;
+          const W = window.innerWidth,
+            H = window.innerHeight;
+          if (edge === 0) {
+            fromX = Math.random() * W;
+            fromY = -30;
+          } else if (edge === 1) {
+            fromX = W + 30;
+            fromY = Math.random() * H;
+          } else if (edge === 2) {
+            fromX = Math.random() * W;
+            fromY = H + 30;
+          } else {
+            fromX = -30;
+            fromY = Math.random() * H;
+          }
+          joinAnimations.push({ id: msg.id, fromX, fromY, progress: 0 });
         });
 
         socket.on("user-left", (msg) => {
