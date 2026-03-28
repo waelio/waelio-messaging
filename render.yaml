@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: waelio-messaging
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22
