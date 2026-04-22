@@ -69,10 +69,66 @@
           opacity: 0;
         }
       }
+      #requestPopup {
+        position: fixed;
+        background: rgba(10, 14, 30, 0.96);
+        color: #d0e4ff;
+        border: 1px solid rgba(100, 160, 255, 0.45);
+        border-radius: 10px;
+        padding: 14px 18px 14px 16px;
+        font-family: Roboto, monospace, sans-serif;
+        font-size: 13px;
+        min-width: 230px;
+        max-width: 320px;
+        z-index: 10000;
+        box-shadow: 0 4px 28px rgba(0, 60, 180, 0.45);
+        display: none;
+        pointer-events: auto;
+      }
+      #requestPopup .popup-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #7ab4ff;
+        margin-bottom: 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid rgba(100, 160, 255, 0.3);
+      }
+      #requestPopup .popup-row {
+        margin: 6px 0;
+        word-break: break-all;
+        line-height: 1.4;
+      }
+      #requestPopup .popup-label {
+        color: #7090b0;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      #requestPopup .popup-value {
+        color: #d0e4ff;
+        font-size: 12px;
+      }
+      #requestPopup .popup-close {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        cursor: pointer;
+        color: #7090b0;
+        font-size: 16px;
+        line-height: 1;
+      }
+      #requestPopup .popup-close:hover {
+        color: #fff;
+      }
     </style>
   </head>
   <body>
     <div id="toasts"></div>
+    <div id="requestPopup">
+      <span class="popup-close" id="popupCloseBtn">✕</span>
+      <div class="popup-title">📡 Request Info</div>
+      <div id="popupContent"></div>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/p5.min.js"></script>
     <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
     <script>
@@ -97,6 +153,20 @@
       let userPositions = {};
       let messageAnimations = [];
       let joinAnimations = [];
+
+      // Constants
+      const STAR_CLICK_RADIUS = 25;
+      const POPUP_WIDTH_MARGIN = 340;
+      const POPUP_HEIGHT_MARGIN = 230;
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
 
       function setup() {
         createCanvas(windowWidth, windowHeight);
@@ -197,7 +267,7 @@
           textSize(20);
         });
 
-        // Draw message animations (flames/meteors)
+        // Draw message animations (falling stars with labels)
         messageAnimations.forEach((anim, index) => {
           anim.progress += 0.015;
 
@@ -215,31 +285,113 @@
             x: centerX,
             y: centerY,
           };
-          const toPos = userPositions[anim.to] || { x: centerX, y: centerY };
+          const toPos = anim.broadcast
+            ? { x: centerX, y: centerY }
+            : userPositions[anim.to] || { x: centerX, y: centerY };
+
           const x = lerp(fromPos.x, toPos.x, effectiveProgress);
           const y = lerp(fromPos.y, toPos.y, effectiveProgress);
+          const alpha =
+            effectiveProgress < 0.8
+              ? 255
+              : ((1 - effectiveProgress) / 0.2) * 255;
 
-          const size = 20 + sin(effectiveProgress * PI * 4) * 8;
-          const alpha = (1 - effectiveProgress) * 255;
+          // Store current position for click detection
+          anim.currentX = x;
+          anim.currentY = y;
 
-          if (anim.broadcast) {
-            fill(255, 255, 0, alpha);
-          } else {
-            fill(
-              anim.flameId === 0
-                ? color(255, 100, 0, alpha)
-                : color(255, 50, 0, alpha),
+          // Tail: series of fading line segments behind the head
+          const tailLen = 10;
+          for (let t = 1; t <= tailLen; t++) {
+            const tp = Math.max(0, effectiveProgress - t * 0.018);
+            const tx = lerp(fromPos.x, toPos.x, tp);
+            const ty = lerp(fromPos.y, toPos.y, tp);
+            const tailAlpha = alpha * (1 - t / tailLen);
+            const sw = (1 - t / tailLen) * 4;
+            strokeWeight(sw);
+            stroke(
+              anim.broadcast
+                ? color(255, 255, 100, tailAlpha)
+                : color(255, 150, 50, tailAlpha),
+            );
+            line(
+              lerp(
+                fromPos.x,
+                toPos.x,
+                Math.max(0, effectiveProgress - (t - 1) * 0.018),
+              ),
+              lerp(
+                fromPos.y,
+                toPos.y,
+                Math.max(0, effectiveProgress - (t - 1) * 0.018),
+              ),
+              tx,
+              ty,
             );
           }
 
+          // Star head: a bright 8-point star shape
           noStroke();
-          ellipse(x, y, size * 1.5, size * 0.7);
-          fill(255, 200, 0, alpha * 0.3);
-          ellipse(x, y, size * 2.5, size * 1.2);
+          fill(
+            anim.broadcast
+              ? color(255, 255, 0, alpha)
+              : color(255, 150, 50, alpha),
+          );
+          const s = 9;
+          push();
+          translate(x, y);
+          beginShape();
+          for (let i = 0; i < 8; i++) {
+            const r = i % 2 === 0 ? s : s * 0.35;
+            const a = (TWO_PI / 8) * i - HALF_PI;
+            vertex(cos(a) * r, sin(a) * r);
+          }
+          endShape(CLOSE);
+          pop();
+
+          // Address label above the star head (click the star to reveal request info)
+          noStroke();
+          fill(
+            anim.broadcast
+              ? color(255, 255, 100, alpha)
+              : color(255, 210, 120, alpha),
+          );
+          textAlign(CENTER, CENTER);
+          textSize(11);
+          text("⬡ " + anim.from.substring(0, 8), x, y - 18);
+          textSize(20);
         });
       }
 
+      function mouseMoved() {
+        let overStar = false;
+        for (const anim of messageAnimations) {
+          if (anim.currentX && anim.currentY) {
+            if (dist(mouseX, mouseY, anim.currentX, anim.currentY) < STAR_CLICK_RADIUS) {
+              overStar = true;
+              break;
+            }
+          }
+        }
+        cursor(overStar ? HAND : ARROW);
+      }
+
       function mousePressed() {
+        // Close popup if open
+        closePopup();
+
+        // Check if click is on any active message star (within STAR_CLICK_RADIUS)
+        for (const anim of messageAnimations) {
+          if (anim.currentX && anim.currentY) {
+            const d = dist(mouseX, mouseY, anim.currentX, anim.currentY);
+            if (d < STAR_CLICK_RADIUS) {
+              showRequestPopup(anim, mouseX, mouseY);
+              return;
+            }
+          }
+        }
+
+        // Check if click is on a user circle to send a direct message
         const centerX = width / 2;
         const centerY = height / 2;
         const radius = min(width, height) / 4;
@@ -256,17 +408,59 @@
         });
       }
 
-      function addFlameAnimation(from, to, broadcast) {
-        for (let i = 0; i < 2; i++) {
-          messageAnimations.push({
-            from,
-            to,
-            broadcast,
-            progress: 0,
-            offset: i * 0.1,
-            flameId: i,
-          });
-        }
+      function showRequestPopup(anim, px, py) {
+        const popup = document.getElementById("requestPopup");
+        const content = document.getElementById("popupContent");
+        const ts = anim.timestamp
+          ? new Date(anim.timestamp).toLocaleTimeString()
+          : "—";
+        const toValue = anim.broadcast
+          ? "(broadcast — all users)"
+          : escapeHtml(anim.to || "unknown");
+        content.innerHTML = `
+          <div class="popup-row">
+            <div class="popup-label">From (address)</div>
+            <div class="popup-value">${escapeHtml(anim.from)}</div>
+          </div>
+          <div class="popup-row">
+            <div class="popup-label">To</div>
+            <div class="popup-value">${toValue}</div>
+          </div>
+          <div class="popup-row">
+            <div class="popup-label">Payload</div>
+            <div class="popup-value">${escapeHtml(anim.payload || "—")}</div>
+          </div>
+          <div class="popup-row">
+            <div class="popup-label">Type</div>
+            <div class="popup-value">${anim.broadcast ? "Broadcast" : "Direct"}</div>
+          </div>
+          <div class="popup-row">
+            <div class="popup-label">Time</div>
+            <div class="popup-value">${escapeHtml(ts)}</div>
+          </div>
+        `;
+        const maxLeft = window.innerWidth - POPUP_WIDTH_MARGIN;
+        const maxTop = window.innerHeight - POPUP_HEIGHT_MARGIN;
+        popup.style.left = Math.min(px + 12, maxLeft) + "px";
+        popup.style.top = Math.min(py + 12, maxTop) + "px";
+        popup.style.display = "block";
+      }
+
+      function closePopup() {
+        document.getElementById("requestPopup").style.display = "none";
+      }
+
+      function addStarAnimation(from, to, broadcast, payload, timestamp) {
+        messageAnimations.push({
+          from,
+          to,
+          broadcast,
+          payload: payload || "",
+          timestamp: timestamp || new Date().toISOString(),
+          progress: 0,
+          currentX: 0,
+          currentY: 0,
+        });
       }
 
       function connect() {
@@ -333,7 +527,7 @@
             ts: new Date(msg.timestamp),
             me: msg.senderId === clientId,
           });
-          addFlameAnimation(
+          addStarAnimation(
             msg.senderId,
             msg.isBroadcast
               ? null
@@ -341,6 +535,8 @@
                 ? msg.recipientId
                 : clientId,
             msg.isBroadcast,
+            msg.payload,
+            msg.timestamp,
           );
         });
       }
@@ -367,6 +563,7 @@
 
       // Start connection
       connect();
+      document.getElementById("popupCloseBtn").addEventListener("click", closePopup);
     </script>
   </body>
 </html>
