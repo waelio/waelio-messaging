@@ -1,5 +1,31 @@
 import { MongoClient } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'node:crypto';
+
+// ── Peace2074 webhook emitter ─────────────────────────────────────────────────
+// Set PEACE2074_WEBHOOK_URL and (optionally) PEACE2074_WEBHOOK_SECRET in .env
+// to forward every new message to the Nitro API for Web Push delivery.
+
+const PEACE2074_WEBHOOK_URL = process.env.PEACE2074_WEBHOOK_URL ?? '';
+const PEACE2074_WEBHOOK_SECRET = process.env.PEACE2074_WEBHOOK_SECRET ?? '';
+
+async function emitToWebhook(message: Record<string, unknown>): Promise<void> {
+    if (!PEACE2074_WEBHOOK_URL) return;
+    try {
+        const body = JSON.stringify(message);
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (PEACE2074_WEBHOOK_SECRET) {
+            headers['x-webhook-signature'] =
+                'sha256=' + crypto.createHmac('sha256', PEACE2074_WEBHOOK_SECRET).update(body).digest('hex');
+        }
+        const res = await fetch(PEACE2074_WEBHOOK_URL, { method: 'POST', headers, body });
+        if (!res.ok) {
+            console.warn(`[Messages] Webhook POST failed: ${res.status}`);
+        }
+    } catch (err) {
+        console.warn('[Messages] Webhook POST error:', err);
+    }
+}
 
 const DB_NAME = 'messagingApp';
 const DB_HISTORY_LIMIT = 1000;
@@ -92,6 +118,10 @@ export class MessagesService {
         };
 
         await this.collection.insertOne({ ...message });
+
+        // Fire-and-forget: notify Peace2074 Nitro API for Web Push delivery
+        void emitToWebhook(message);
+
         return message;
     }
 
