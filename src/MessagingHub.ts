@@ -6,6 +6,7 @@ import type { IMessagesCollection } from './types.js';
 
 import { WebSocketServer } from 'ws';
 import { MongoClient } from 'mongodb';
+import { z } from 'zod';
 
 // --- Type Definitions ---
 
@@ -15,14 +16,29 @@ interface HubOptions {
     secret?: string;
 }
 
-type ClientMessage =
-    | { type: 'route'; to: string; payload: unknown }
-    | { type: 'broadcast'; payload: unknown }
-    | { type: 'get-history' }
-    | { type: 'join-room'; with: string }
-    | { type: 'room-message'; payload: unknown }
-    | { type: 'start-typing' }
-    | { type: 'stop-typing' };
+const MAX_PAYLOAD_BYTES = 64 * 1024; // 64 KB
+
+const SafePayload = z.unknown().superRefine((val, ctx) => {
+    try {
+        if (JSON.stringify(val).length > MAX_PAYLOAD_BYTES) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Payload exceeds maximum size.' });
+        }
+    } catch {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Payload is not serializable.' });
+    }
+});
+
+const ClientMessageSchema = z.discriminatedUnion('type', [
+    z.object({ type: z.literal('route'), to: z.string().min(1).max(36), payload: SafePayload }),
+    z.object({ type: z.literal('broadcast'), payload: SafePayload }),
+    z.object({ type: z.literal('get-history') }),
+    z.object({ type: z.literal('join-room'), with: z.string().min(1).max(36) }),
+    z.object({ type: z.literal('room-message'), payload: SafePayload }),
+    z.object({ type: z.literal('start-typing') }),
+    z.object({ type: z.literal('stop-typing') }),
+]);
+
+type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
 interface ExtendedWebSocket extends WebSocket {
     clientId: string;
@@ -182,14 +198,20 @@ export class MessagingHub {
         // Notify other clients a user joined (no persistence, lightweight system event)
         this._broadcastToOthers(clientId, JSON.stringify({ type: 'user-joined', id: clientId, ts: Date.now() }));
 
-        ws.on('message', (message) => {
+        ws.on('message', (rawData) => {
+            let parsed: unknown;
             try {
-                const parsedMessage: ClientMessage = JSON.parse(message.toString());
-                this._handleClientMessage(ws, parsedMessage);
-            } catch (error) {
-                console.error('[MessagingHub] Error parsing or handling message:', error);
+                parsed = JSON.parse(rawData.toString());
+            } catch {
                 ws.send(JSON.stringify({ type: 'error', message: 'Invalid JSON format.' }));
+                return;
             }
+            const result = ClientMessageSchema.safeParse(parsed);
+            if (!result.success) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format.', details: result.error.issues.map(i => i.message) }));
+                return;
+            }
+            this._handleClientMessage(ws, result.data);
         });
 
         ws.on('close', () => this._handleDisconnection(ws));
