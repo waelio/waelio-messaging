@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import http from 'http';
+import { createLogger } from './logger.js';
+
+const log = createLogger('Server');
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createFeathersApp } from './feathers/app.js';
@@ -118,7 +121,7 @@ export async function startServer() {
     // Start listening
     await new Promise<void>((resolve) => {
         server.listen(PORT, () => {
-            console.log(`[Server] Listening on http://localhost:${PORT}`);
+            log.info({ port: PORT }, `Listening on http://localhost:${PORT}`);
             resolve();
         });
     });
@@ -126,7 +129,7 @@ export async function startServer() {
     // Graceful shutdown
     const shutdown = () => {
         server.close(() => {
-            console.log('[Server] Closed.');
+            log.info('Server closed.');
             if (process.env.NODE_ENV !== 'test') process.exit(0);
         });
 

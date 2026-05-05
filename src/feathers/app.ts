@@ -4,6 +4,9 @@ import type { Server as HttpServer } from 'http';
 import { configureChannels } from './channels.js';
 import { MessagesService } from './services/messages.js';
 import { RoomsService } from './services/rooms.js';
+import { createLogger } from '../logger.js';
+
+const log = createLogger('Feathers');
 
 /**
  * Creates and configures a Feathers application using Socket.io only (no REST).
@@ -53,7 +56,7 @@ export async function createFeathersApp(httpServer: HttpServer, mongoURI?: strin
                         (socket.handshake.auth as Record<string, unknown>)?.token ??
                         (socket.handshake.query as Record<string, unknown>)?.token;
                     if (token !== secret) {
-                        console.warn('[Feathers] Rejected unauthorized Socket.io connection attempt.');
+                        log.warn('Rejected unauthorized Socket.io connection attempt.');
                         next(new Error('Unauthorized'));
                         return;
                     }
@@ -106,6 +109,6 @@ export async function createFeathersApp(httpServer: HttpServer, mongoURI?: strin
     // ── Attach to existing HTTP server ───────────────────────────────────────
     await app.setup(httpServer);
 
-    console.log('[Feathers] Socket.io app ready (no REST)');
+    log.info('Socket.io app ready (no REST)');
     return app;
 }

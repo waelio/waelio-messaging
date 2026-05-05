@@ -1,4 +1,7 @@
 import type { RealTimeConnection } from '@feathersjs/feathers';
+import { createLogger } from '../../logger.js';
+
+const log = createLogger('Rooms');
 
 /**
  * Feathers-compatible rooms service.
@@ -43,7 +46,7 @@ export class RoomsService {
         (partnerConn as any).roomId = roomId;
         this.app.channel(`rooms/${roomId}`).join(partnerConn);
 
-        console.log(`[Rooms] '${userId}' and '${partnerId}' joined room '${roomId}'`);
+        log.info({ userId, partnerId, roomId }, 'Clients joined room.');
 
         // The returned object is published to both participants via channels.ts
         return { roomId, userId, partnerId };

@@ -7,6 +7,9 @@ import type { IMessagesCollection } from './types.js';
 import { WebSocketServer } from 'ws';
 import { MongoClient } from 'mongodb';
 import { z } from 'zod';
+import { createLogger } from './logger.js';
+
+const log = createLogger('MessagingHub');
 
 // --- Type Definitions ---
 
@@ -98,7 +101,7 @@ export class MessagingHub {
                 if (token === this.secret) {
                     cb(true);
                 } else {
-                    console.warn('[MessagingHub] Rejected unauthorized connection attempt.');
+                    log.warn('Rejected unauthorized connection attempt.');
                     cb(false, 401, 'Unauthorized');
                 }
             }
@@ -113,13 +116,13 @@ export class MessagingHub {
         await this._setupPersistence();
         this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => this._handleConnection(ws as ExtendedWebSocket, req));
         this.heartbeatInterval = setInterval(() => this._pingClients(), HEARTBEAT_INTERVAL_MS);
-        console.log('[MessagingHub] WebSocket server is attached and running.');
+        log.info('WebSocket server is attached and running.');
     }
 
     private _pingClients(): void {
         for (const ws of this.clients.values()) {
             if (!ws.isAlive) {
-                console.warn(`[MessagingHub] Client '${ws.clientId}' did not respond to ping — terminating.`);
+                log.warn({ clientId: ws.clientId }, 'Client did not respond to ping — terminating.');
                 ws.terminate();
                 return;
             }
@@ -133,16 +136,15 @@ export class MessagingHub {
             try {
                 this.mongoClient = new MongoClient(this.mongoURI);
                 await this.mongoClient.connect();
-                console.log('[Database] Connected successfully to MongoDB.');
+                log.info('Connected to MongoDB.');
                 const db: Db = this.mongoClient.db(DB_NAME);
                 this.messagesCollection = db.collection('messages');
             } catch (err) {
-                console.error('[Database] ERROR: Could not initialize MongoDB client or connect. Falling back to in-memory store.');
-                console.error(err);
+                log.error({ err }, 'Could not connect to MongoDB. Falling back to in-memory store.');
                 this._setupInMemoryStore();
             }
         } else {
-            console.warn('[MessagingHub] No mongoURI provided. Running in IN-MEMORY mode.');
+            log.warn('No mongoURI provided. Running in IN-MEMORY mode.');
             this._setupInMemoryStore();
         }
     }
@@ -188,7 +190,7 @@ export class MessagingHub {
     private _handleConnection(ws: ExtendedWebSocket, req: IncomingMessage) {
         const clientId = crypto.randomUUID();
         const clientIp = req.socket.remoteAddress;
-        console.log(`[MessagingHub] New client connected from ${clientIp}, assigned ID: ${clientId}`);
+        log.info({ clientId, clientIp }, 'New client connected.');
 
         ws.clientId = clientId;
         ws.isAlive = true;
@@ -230,7 +232,7 @@ export class MessagingHub {
         });
 
         ws.on('close', () => this._handleDisconnection(ws));
-        ws.on('error', (error) => console.error('[MessagingHub] WebSocket error:', error));
+        ws.on('error', (err) => log.error({ err }, 'WebSocket error.'));
     }
 
     private _handleDisconnection(ws: ExtendedWebSocket) {
@@ -238,7 +240,7 @@ export class MessagingHub {
         if (!clientId) return;
 
         this.clients.delete(clientId);
-        console.log(`[MessagingHub] Client '${clientId}' disconnected.`);
+        log.info({ clientId }, 'Client disconnected.');
         this._broadcastClientList();
         // Notify others this user left
         this._broadcastToOthers(clientId, JSON.stringify({ type: 'user-left', id: clientId, ts: Date.now() }));
@@ -256,7 +258,7 @@ export class MessagingHub {
     }
 
     async shutdown() {
-        console.log('[MessagingHub] Shutting down gracefully...');
+        log.info('Shutting down gracefully...');
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
@@ -269,10 +271,10 @@ export class MessagingHub {
 
         if (this.mongoClient) {
             await this.mongoClient.close();
-            console.log('[Database] MongoDB connection closed.');
+            log.info('MongoDB connection closed.');
         }
 
-        this.wss.close(() => console.log('[MessagingHub] WebSocket server closed.'));
+        this.wss.close(() => log.info('WebSocket server closed.'));
     }
 
     private _broadcastClientList() {
@@ -305,7 +307,7 @@ export class MessagingHub {
     }
 
     private _handleClientMessage(ws: ExtendedWebSocket, message: ClientMessage) {
-        console.log('[MessagingHub] Received message:', message);
+        log.debug({ type: message.type, senderId: ws.clientId }, 'Received message.');
         const senderId = ws.clientId;
 
         switch (message.type) {
@@ -314,7 +316,7 @@ export class MessagingHub {
                 if (destinationWs) {
                     const outboundMessage = { type: 'message', from: senderId, payload: message.payload };
                     const dbMessage: Message = { senderId, recipientId: message.to, payload: message.payload, isBroadcast: false, timestamp: new Date() };
-                    this.messagesCollection?.insertOne(dbMessage).catch((err: any) => console.error('[Database] Error saving routed message:', err));
+                    this.messagesCollection?.insertOne(dbMessage).catch((err: unknown) => log.error({ err }, 'Error saving routed message.'));
                     destinationWs.send(JSON.stringify(outboundMessage));
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: `Client '${message.to}' not found.` }));
@@ -325,7 +327,7 @@ export class MessagingHub {
             case 'broadcast': {
                 const broadcastMessage = { type: 'message', from: senderId, payload: message.payload, isBroadcast: true };
                 const dbBroadcastMessage: Message = { senderId, payload: message.payload, isBroadcast: true, timestamp: new Date() };
-                this.messagesCollection?.insertOne(dbBroadcastMessage).catch((err: any) => console.error('[Database] Error saving broadcast message:', err));
+                this.messagesCollection?.insertOne(dbBroadcastMessage).catch((err: unknown) => log.error({ err }, 'Error saving broadcast message.'));
                 this._broadcastToOthers(senderId, JSON.stringify(broadcastMessage));
                 break;
             }
@@ -336,8 +338,8 @@ export class MessagingHub {
                 const historyLimit = this.mongoClient ? DB_HISTORY_LIMIT : IN_MEMORY_HISTORY_LIMIT;
                 this.messagesCollection?.find(query).sort({ timestamp: 1 }).limit(historyLimit).toArray()
                     .then((history: any) => ws.send(JSON.stringify({ type: 'message-history', history })))
-                    .catch((err: any) => {
-                        console.error(`[Database] Error fetching history for '${senderId}':`, err);
+                    .catch((err: unknown) => {
+                        log.error({ err, senderId }, 'Error fetching message history.');
                         ws.send(JSON.stringify({ type: 'error', message: 'Failed to retrieve message history.' }));
                     });
                 break;
@@ -369,7 +371,7 @@ export class MessagingHub {
                 partnerWs.roomId = roomId;
                 ws.send(JSON.stringify({ type: 'joined-room', roomId, with: partnerId }));
                 partnerWs.send(JSON.stringify({ type: 'joined-room', roomId, with: senderId }));
-                console.log(`[MessagingHub] Clients '${senderId}' and '${partnerId}' joined room '${roomId}'.`);
+                log.info({ senderId, partnerId, roomId }, 'Clients joined room.');
                 break;
             }
 
@@ -379,7 +381,7 @@ export class MessagingHub {
                     return;
                 }
                 const dbRoomMessage: Message = { senderId, roomId: ws.roomId, payload: message.payload, isBroadcast: false, timestamp: new Date() };
-                this.messagesCollection?.insertOne(dbRoomMessage).catch((err: any) => console.error('[Database] Error saving room message:', err));
+                this.messagesCollection?.insertOne(dbRoomMessage).catch((err: unknown) => log.error({ err }, 'Error saving room message.'));
                 const otherParticipant = this._findOtherParticipant(senderId, ws.roomId);
                 if (otherParticipant) {
                     const roomMessage = { type: 'message', from: senderId, payload: message.payload, roomId: ws.roomId, isBroadcast: false };
@@ -406,7 +408,7 @@ export class MessagingHub {
 
         const outboundMessage = { type: 'message', from, payload };
         const dbMessage: Message = { senderId: from, recipientId, payload, isBroadcast: false, timestamp: new Date() };
-        this.messagesCollection?.insertOne(dbMessage).catch((err: any) => console.error('[Database] Error saving routed message:', err));
+        this.messagesCollection?.insertOne(dbMessage).catch((err: unknown) => log.error({ err }, 'Error saving routed message.'));
         destinationWs.send(JSON.stringify(outboundMessage));
         return true;
     }
@@ -417,7 +419,7 @@ export class MessagingHub {
     async broadcast(payload: any, from: string = 'api', excludeId?: string): Promise<void> {
         const broadcastMessage = { type: 'message', from, payload, isBroadcast: true };
         const dbBroadcastMessage: Message = { senderId: from, payload, isBroadcast: true, timestamp: new Date() };
-        this.messagesCollection?.insertOne(dbBroadcastMessage).catch((err: any) => console.error('[Database] Error saving broadcast message:', err));
+        this.messagesCollection?.insertOne(dbBroadcastMessage).catch((err: unknown) => log.error({ err }, 'Error saving broadcast message.'));
         for (const [id, clientWs] of this.clients.entries()) {
             if (excludeId && id === excludeId) continue;
             clientWs.send(JSON.stringify(broadcastMessage));

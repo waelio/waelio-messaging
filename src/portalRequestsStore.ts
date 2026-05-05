@@ -1,5 +1,8 @@
 import { MongoClient } from 'mongodb';
 import crypto from 'node:crypto';
+import { createLogger } from './logger.js';
+
+const log = createLogger('PortalRequests');
 
 const DB_NAME = 'messagingApp';
 const COLLECTION_NAME = 'portalRequests';
@@ -78,14 +81,14 @@ export class PortalRequestsStore {
                 this.collection = this.mongoClient.db(DB_NAME).collection(COLLECTION_NAME);
                 await this.collection.createIndex({ requestId: 1 }, { unique: true });
                 await this.collection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-                console.log('[PortalRequests] Connected to MongoDB');
+                log.info('Connected to MongoDB.');
                 return;
             } catch (error) {
-                console.error('[PortalRequests] MongoDB failed, falling back to in-memory store', error);
+                log.error({ err: error }, 'MongoDB failed, falling back to in-memory store.');
             }
         }
 
-        console.log('[PortalRequests] Using in-memory store');
+        log.warn('No mongoURI provided. Using in-memory store.');
     }
 
     private normalizeDocument(input: any): PortalRequestDocument {

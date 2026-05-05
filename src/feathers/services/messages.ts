@@ -1,6 +1,9 @@
 import { MongoClient } from 'mongodb';
 import crypto from 'node:crypto';
+import { createLogger } from '../../logger.js';
 import type { IMessagesCollection } from '../../types.js';
+
+const log = createLogger('Messages');
 
 // ── Peace2074 webhook emitter ─────────────────────────────────────────────────
 // Set PEACE2074_WEBHOOK_URL and (optionally) PEACE2074_WEBHOOK_SECRET in .env
@@ -20,10 +23,10 @@ async function emitToWebhook(message: Record<string, unknown>): Promise<void> {
         }
         const res = await fetch(PEACE2074_WEBHOOK_URL, { method: 'POST', headers, body });
         if (!res.ok) {
-            console.warn(`[Messages] Webhook POST failed: ${res.status}`);
+            log.warn({ status: res.status }, 'Webhook POST failed.');
         }
     } catch (err) {
-        console.warn('[Messages] Webhook POST error:', err);
+        log.warn({ err }, 'Webhook POST error.');
     }
 }
 
@@ -68,10 +71,10 @@ export class MessagesService {
                 this.mongoClient = new MongoClient(mongoURI);
                 await this.mongoClient.connect();
                 this.collection = this.mongoClient.db(DB_NAME).collection('messages');
-                console.log('[Messages] Connected to MongoDB');
+                log.info('Connected to MongoDB.');
                 return;
             } catch (err) {
-                console.error('[Messages] MongoDB failed, falling back to in-memory store', err);
+                log.error({ err }, 'MongoDB failed, falling back to in-memory store.');
             }
         }
         this._setupInMemory();
@@ -112,7 +115,7 @@ export class MessagesService {
                 };
             },
         };
-        console.log('[Messages] Using in-memory store');
+        log.warn('No mongoURI provided. Using in-memory store.');
     }
 
     // ── Feathers service methods ─────────────────────────────────────────────
