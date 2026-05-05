@@ -28,6 +28,7 @@ type ClientMessage =
 interface ExtendedWebSocket extends WebSocket {
     clientId: string;
     roomId: string | null;
+    isAlive: boolean;
 }
 
 interface Message {
@@ -43,6 +44,7 @@ interface Message {
 const DB_HISTORY_LIMIT = 1000;
 const IN_MEMORY_HISTORY_LIMIT = 100;
 const DB_NAME = 'messagingApp';
+const HEARTBEAT_INTERVAL_MS = 30_000;
 
 export class MessagingHub {
     /**
@@ -56,6 +58,7 @@ export class MessagingHub {
     private messagesCollection: IMessagesCollection<Message> | null;
     private clients: Map<string, ExtendedWebSocket> = new Map();
     private wss: WebSocketServer;
+    private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
     public ready: Promise<void>;
 
     constructor(httpServer: HttpServer, options: HubOptions = {}) {
@@ -90,7 +93,20 @@ export class MessagingHub {
     private async _initialize(): Promise<void> {
         await this._setupPersistence();
         this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => this._handleConnection(ws as ExtendedWebSocket, req));
+        this.heartbeatInterval = setInterval(() => this._pingClients(), HEARTBEAT_INTERVAL_MS);
         console.log('[MessagingHub] WebSocket server is attached and running.');
+    }
+
+    private _pingClients(): void {
+        for (const ws of this.clients.values()) {
+            if (!ws.isAlive) {
+                console.warn(`[MessagingHub] Client '${ws.clientId}' did not respond to ping — terminating.`);
+                ws.terminate();
+                return;
+            }
+            ws.isAlive = false;
+            ws.ping();
+        }
     }
 
     private async _setupPersistence() {
@@ -156,8 +172,11 @@ export class MessagingHub {
         console.log(`[MessagingHub] New client connected from ${clientIp}, assigned ID: ${clientId}`);
 
         ws.clientId = clientId;
+        ws.isAlive = true;
         this.clients.set(clientId, ws);
         ws.roomId = null;
+
+        ws.on('pong', () => { ws.isAlive = true; });
 
         ws.send(JSON.stringify({ type: 'register-success', id: clientId }));
         this._broadcastClientList();
@@ -202,6 +221,10 @@ export class MessagingHub {
 
     async shutdown() {
         console.log('[MessagingHub] Shutting down gracefully...');
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
         const shutdownMessage = JSON.stringify({ type: 'info', message: 'Server is shutting down.' });
         for (const clientWs of this.clients.values()) {
             clientWs.send(shutdownMessage, () => (clientWs as WebSocket).close(1000, 'Server Shutdown'));
