@@ -74,24 +74,32 @@ export class MessagesService {
                 if (store.length > IN_MEMORY_LIMIT) store.shift();
                 return doc;
             },
-            find: (query: any = {}) => ({
-                sort: () => ({
-                    limit: () => ({
-                        toArray: async (): Promise<any[]> => {
-                            if (!query.$or) return [...store];
-                            const ids = (query.$or as any[]).flatMap((c) =>
-                                Object.values(c) as string[]
-                            );
-                            return store.filter(
-                                (m) =>
-                                    m.isBroadcast ||
-                                    ids.includes(m.senderId) ||
-                                    ids.includes(m.recipientId)
-                            );
-                        },
-                    }),
-                }),
-            }),
+            find: (query: any = {}) => {
+                let filtered: any[] = query.$or
+                    ? (() => {
+                        const ids = (query.$or as any[]).flatMap((c) => Object.values(c) as string[]);
+                        return store.filter(
+                            (m) => m.isBroadcast || ids.includes(m.senderId) || ids.includes(m.recipientId)
+                        );
+                    })()
+                    : [...store];
+
+                return {
+                    sort: (spec: Record<string, 1 | -1>) => {
+                        const [field, dir] = Object.entries(spec)[0] ?? ['timestamp', 1 as const];
+                        filtered = [...filtered].sort((a: any, b: any) => {
+                            const av = a[field] instanceof Date ? (a[field] as Date).getTime() : a[field];
+                            const bv = b[field] instanceof Date ? (b[field] as Date).getTime() : b[field];
+                            return dir === 1 ? av - bv : bv - av;
+                        });
+                        return {
+                            limit: (n: number) => ({
+                                toArray: async () => filtered.slice(0, n),
+                            }),
+                        };
+                    },
+                };
+            },
         };
         console.log('[Messages] Using in-memory store');
     }

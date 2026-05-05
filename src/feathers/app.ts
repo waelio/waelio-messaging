@@ -29,7 +29,7 @@ import { RoomsService } from './services/rooms.js';
  *   'messages created'   →  Feathers service event   (message object)
  *   'rooms created'      →  Feathers service event   { roomId, userId, partnerId }
  */
-export async function createFeathersApp(httpServer: HttpServer, mongoURI?: string, allowedOrigins: string[] = []) {
+export async function createFeathersApp(httpServer: HttpServer, mongoURI?: string, allowedOrigins: string[] = [], secret?: string) {
     const messagesService = new MessagesService(mongoURI);
     await messagesService.ready;
 
@@ -47,6 +47,18 @@ export async function createFeathersApp(httpServer: HttpServer, mongoURI?: strin
             io.use((socket, next) => {
                 (socket as any).feathers = (socket as any).feathers ?? {};
                 (socket as any).feathers.clientId = socket.id;
+
+                if (secret) {
+                    const token =
+                        (socket.handshake.auth as Record<string, unknown>)?.token ??
+                        (socket.handshake.query as Record<string, unknown>)?.token;
+                    if (token !== secret) {
+                        console.warn('[Feathers] Rejected unauthorized Socket.io connection attempt.');
+                        next(new Error('Unauthorized'));
+                        return;
+                    }
+                }
+
                 next();
             });
 

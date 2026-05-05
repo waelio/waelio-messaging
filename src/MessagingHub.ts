@@ -12,12 +12,18 @@ import { uStore } from '@waelio/ustore';
 
 interface HubOptions {
     mongoURI?: string;
+    /** Shared secret token required in the WebSocket upgrade URL as `?token=<secret>`. When omitted, all connections are accepted. */
+    secret?: string;
 }
 
-interface ClientMessage {
-    type: string;
-    [key: string]: any;
-}
+type ClientMessage =
+    | { type: 'route'; to: string; payload: unknown }
+    | { type: 'broadcast'; payload: unknown }
+    | { type: 'get-history' }
+    | { type: 'join-room'; with: string }
+    | { type: 'room-message'; payload: unknown }
+    | { type: 'start-typing' }
+    | { type: 'stop-typing' };
 
 interface ExtendedWebSocket extends WebSocket {
     clientId: string;
@@ -28,6 +34,7 @@ interface Message {
     _id?: any;
     senderId: string;
     recipientId?: string;
+    roomId?: string;
     payload: any;
     isBroadcast: boolean;
     timestamp: Date;
@@ -44,6 +51,7 @@ export class MessagingHub {
      * @param {string} [options.mongoURI] Optional MongoDB connection string for message persistence.
      */
     private mongoURI?: string;
+    private secret?: string;
     private mongoClient: MongoClient | null;
     private messagesCollection: Collection<Message> | any; // Allow mock object
     private clients: Map<string, ExtendedWebSocket> = new Map();
@@ -56,10 +64,25 @@ export class MessagingHub {
         }
 
         this.mongoURI = options.mongoURI;
+        this.secret = options.secret;
         // Defer MongoClient construction to _setupPersistence so invalid URIs don't crash the app
         this.mongoClient = null;
         this.messagesCollection = null;
-        this.wss = new WebSocketServer({ server: httpServer });
+
+        const verifyClient = this.secret
+            ? (info: { req: IncomingMessage }, cb: (res: boolean, code?: number, message?: string) => void) => {
+                const url = new URL(info.req.url ?? '/', 'http://localhost');
+                const token = url.searchParams.get('token');
+                if (token === this.secret) {
+                    cb(true);
+                } else {
+                    console.warn('[MessagingHub] Rejected unauthorized connection attempt.');
+                    cb(false, 401, 'Unauthorized');
+                }
+            }
+            : undefined;
+
+        this.wss = new WebSocketServer({ server: httpServer, verifyClient });
 
         this.ready = this._initialize();
     }
@@ -101,14 +124,27 @@ export class MessagingHub {
                 return { acknowledged: true, insertedId: message._id };
             },
             find: (query: any = {}) => {
-                let filtered = inMemoryMessages;
-                if (query.$or) {
-                    const orClauses = query.$or;
-                    const ids = orClauses.map((c: any) => c.recipientId || c.senderId).filter(Boolean);
-                    filtered = inMemoryMessages.filter(msg => msg.isBroadcast || ids.includes(msg.senderId) || ids.includes(msg.recipientId));
-                }
+                let filtered: Message[] = query.$or
+                    ? (() => {
+                        const ids: string[] = (query.$or as any[]).flatMap((c: any) => Object.values(c) as string[]);
+                        return inMemoryMessages.filter(m => m.isBroadcast || ids.includes(m.senderId) || ids.includes(m.recipientId ?? ''));
+                    })()
+                    : [...inMemoryMessages];
+
                 return {
-                    sort: () => ({ limit: () => ({ toArray: () => Promise.resolve(filtered) }) })
+                    sort: (spec: Record<string, 1 | -1>) => {
+                        const [field, dir] = Object.entries(spec)[0] ?? ['timestamp', 1 as const];
+                        filtered = [...filtered].sort((a: any, b: any) => {
+                            const av = a[field] instanceof Date ? (a[field] as Date).getTime() : a[field];
+                            const bv = b[field] instanceof Date ? (b[field] as Date).getTime() : b[field];
+                            return dir === 1 ? av - bv : bv - av;
+                        });
+                        return {
+                            limit: (n: number) => ({
+                                toArray: () => Promise.resolve(filtered.slice(0, n))
+                            })
+                        };
+                    }
                 };
             }
         };
@@ -218,7 +254,7 @@ export class MessagingHub {
         const senderId = ws.clientId;
 
         switch (message.type) {
-            case 'route':
+            case 'route': {
                 const destinationWs = this.clients.get(message.to);
                 if (destinationWs) {
                     const outboundMessage = { type: 'message', from: senderId, payload: message.payload };
@@ -229,15 +265,17 @@ export class MessagingHub {
                     ws.send(JSON.stringify({ type: 'error', message: `Client '${message.to}' not found.` }));
                 }
                 break;
+            }
 
-            case 'broadcast':
+            case 'broadcast': {
                 const broadcastMessage = { type: 'message', from: senderId, payload: message.payload, isBroadcast: true };
                 const dbBroadcastMessage: Message = { senderId, payload: message.payload, isBroadcast: true, timestamp: new Date() };
                 this.messagesCollection?.insertOne(dbBroadcastMessage).catch((err: any) => console.error('[Database] Error saving broadcast message:', err));
                 this._broadcastToOthers(senderId, JSON.stringify(broadcastMessage));
                 break;
+            }
 
-            case 'get-history':
+            case 'get-history': {
                 if (!senderId) return;
                 const query = { $or: [{ recipientId: senderId }, { senderId: senderId }, { isBroadcast: true }] };
                 const historyLimit = this.mongoClient ? DB_HISTORY_LIMIT : IN_MEMORY_HISTORY_LIMIT;
@@ -248,16 +286,19 @@ export class MessagingHub {
                         ws.send(JSON.stringify({ type: 'error', message: 'Failed to retrieve message history.' }));
                     });
                 break;
+            }
 
-            case 'start-typing':
+            case 'start-typing': {
                 this._broadcastToOthers(senderId, JSON.stringify({ type: 'user-typing', id: senderId }));
                 break;
+            }
 
-            case 'stop-typing':
+            case 'stop-typing': {
                 this._broadcastToOthers(senderId, JSON.stringify({ type: 'user-stopped-typing', id: senderId }));
                 break;
+            }
 
-            case 'join-room':
+            case 'join-room': {
                 const partnerId = message.with;
                 if (!partnerId || partnerId === senderId) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Invalid partner ID.' }));
@@ -275,21 +316,28 @@ export class MessagingHub {
                 partnerWs.send(JSON.stringify({ type: 'joined-room', roomId, with: senderId }));
                 console.log(`[MessagingHub] Clients '${senderId}' and '${partnerId}' joined room '${roomId}'.`);
                 break;
+            }
 
-            case 'room-message':
+            case 'room-message': {
                 if (!ws.roomId) {
                     ws.send(JSON.stringify({ type: 'error', message: 'You are not in a room.' }));
                     return;
                 }
+                const dbRoomMessage: Message = { senderId, roomId: ws.roomId, payload: message.payload, isBroadcast: false, timestamp: new Date() };
+                this.messagesCollection?.insertOne(dbRoomMessage).catch((err: any) => console.error('[Database] Error saving room message:', err));
                 const otherParticipant = this._findOtherParticipant(senderId, ws.roomId);
                 if (otherParticipant) {
-                    const roomMessage = { type: 'message', from: senderId, payload: message.payload, isBroadcast: false };
+                    const roomMessage = { type: 'message', from: senderId, payload: message.payload, roomId: ws.roomId, isBroadcast: false };
                     otherParticipant.send(JSON.stringify(roomMessage));
                 }
                 break;
+            }
 
-            default:
-                ws.send(JSON.stringify({ type: 'error', message: `Unknown message type: '${message.type}'.` }));
+            default: {
+                const _exhaustive: never = message;
+                void _exhaustive;
+                ws.send(JSON.stringify({ type: 'error', message: 'Unknown message type.' }));
+            }
         }
     }
 

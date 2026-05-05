@@ -7,6 +7,7 @@ import { createFeathersApp } from './feathers/app.js';
 import { PortalRequestsStore } from './portalRequestsStore.js';
 
 const MONGO_URI = process.env.MONGO_URI;
+const WS_SECRET = process.env.WS_SECRET || undefined;
 const portalRequestsStore = new PortalRequestsStore(MONGO_URI);
 
 // Comma-separated list of allowed origins, e.g. "https://waelio-messaging.netlify.app"
@@ -112,7 +113,7 @@ export async function startServer() {
     const PORT = process.env.PORT || 8080;
 
     // Attach Feathers + Socket.io to the HTTP server (no REST transport)
-    await createFeathersApp(server, MONGO_URI, ALLOWED_ORIGINS);
+    await createFeathersApp(server, MONGO_URI, ALLOWED_ORIGINS, WS_SECRET);
 
     // Start listening
     await new Promise<void>((resolve) => {
