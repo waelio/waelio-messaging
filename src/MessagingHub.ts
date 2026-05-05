@@ -6,7 +6,6 @@ import type { WebSocket } from 'ws';
 import { WebSocketServer } from 'ws';
 import { MongoClient } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
-import { uStore } from '@waelio/ustore';
 
 // --- Type Definitions ---
 
@@ -163,8 +162,6 @@ export class MessagingHub {
         this._broadcastClientList();
         // Notify other clients a user joined (no persistence, lightweight system event)
         this._broadcastToOthers(clientId, JSON.stringify({ type: 'user-joined', id: clientId, ts: Date.now() }));
-        // Track connected clients count via uStore (in-memory)
-        try { uStore.memory.set('connectedClients', this.clients.size); } catch { }
 
         ws.on('message', (message) => {
             try {
@@ -189,8 +186,6 @@ export class MessagingHub {
         this._broadcastClientList();
         // Notify others this user left
         this._broadcastToOthers(clientId, JSON.stringify({ type: 'user-left', id: clientId, ts: Date.now() }));
-        // Update connected clients metric
-        try { uStore.memory.set('connectedClients', this.clients.size); } catch { }
 
         if (ws.roomId) {
             const otherParticipant = this._findOtherParticipant(ws.clientId, ws.roomId);

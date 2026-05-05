@@ -31,7 +31,6 @@
     "dependencies": {
         "@feathersjs/feathers": "^5.0.43",
         "@feathersjs/socketio": "^5.0.43",
-        "@waelio/ustore": "^1.0.8",
         "dotenv": "^16.4.5",
         "express": "^4.21.2",
         "mongodb": "^6.8.0",
