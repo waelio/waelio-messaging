@@ -72,5 +72,8 @@
         "release:minor": "npm run release:verify && npm version minor -m 'chore(release): %s' && git push --follow-tags",
         "release:major": "npm run release:verify && npm version major -m 'chore(release): %s' && git push --follow-tags",
         "release:publish": "npm publish --access public"
+    },
+    "overrides": {
+        "serialize-javascript": ">=7.0.5"
     }
 }
