@@ -1,5 +1,5 @@
 import { MongoClient } from 'mongodb';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'node:crypto';
 
 const DB_NAME = 'messagingApp';
 const COLLECTION_NAME = 'portalRequests';
@@ -91,7 +91,7 @@ export class PortalRequestsStore {
     private normalizeDocument(input: any): PortalRequestDocument {
         const requestId = typeof input?.requestId === 'string' && input.requestId.trim()
             ? input.requestId.trim()
-            : uuidv4();
+            : crypto.randomUUID();
         const createdAt = typeof input?.createdAt === 'string' && !Number.isNaN(Date.parse(input.createdAt))
             ? new Date(input.createdAt)
             : new Date();

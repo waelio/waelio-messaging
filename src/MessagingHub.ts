@@ -6,7 +6,6 @@ import type { IMessagesCollection } from './types.js';
 
 import { WebSocketServer } from 'ws';
 import { MongoClient } from 'mongodb';
-import { v4 as uuidv4 } from 'uuid';
 
 // --- Type Definitions ---
 
@@ -132,7 +131,7 @@ export class MessagingHub {
         const inMemoryMessages: Message[] = [];
         this.messagesCollection = { // Mocking the Collection interface for in-memory operations
             insertOne: async (message: Message) => {
-                message._id = uuidv4();
+                message._id = crypto.randomUUID();
                 inMemoryMessages.push(message);
                 if (inMemoryMessages.length > IN_MEMORY_HISTORY_LIMIT) {
                     inMemoryMessages.shift();
@@ -167,7 +166,7 @@ export class MessagingHub {
     }
 
     private _handleConnection(ws: ExtendedWebSocket, req: IncomingMessage) {
-        const clientId = uuidv4();
+        const clientId = crypto.randomUUID();
         const clientIp = req.socket.remoteAddress;
         console.log(`[MessagingHub] New client connected from ${clientIp}, assigned ID: ${clientId}`);
 

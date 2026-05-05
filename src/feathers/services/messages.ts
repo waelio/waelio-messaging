@@ -1,5 +1,4 @@
 import { MongoClient } from 'mongodb';
-import { v4 as uuidv4 } from 'uuid';
 import crypto from 'node:crypto';
 import type { IMessagesCollection } from '../../types.js';
 
@@ -127,7 +126,7 @@ export class MessagesService {
         const roomId: string | undefined = (params?.connection as any)?.roomId;
 
         const message = {
-            _id: uuidv4(),
+            _id: crypto.randomUUID(),
             type: data.type,           // 'route' | 'broadcast' | 'room-message'
             payload: data.payload,
             senderId,
