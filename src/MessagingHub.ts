@@ -44,6 +44,8 @@ interface ExtendedWebSocket extends WebSocket {
     clientId: string;
     roomId: string | null;
     isAlive: boolean;
+    msgCount: number;
+    rateLimitWindowStart: number;
 }
 
 interface Message {
@@ -60,6 +62,8 @@ const DB_HISTORY_LIMIT = 1000;
 const IN_MEMORY_HISTORY_LIMIT = 100;
 const DB_NAME = 'messagingApp';
 const HEARTBEAT_INTERVAL_MS = 30_000;
+const RATE_LIMIT_MAX_MESSAGES = 30;  // max messages per window
+const RATE_LIMIT_WINDOW_MS = 10_000; // 10 second window
 
 export class MessagingHub {
     /**
@@ -188,6 +192,8 @@ export class MessagingHub {
 
         ws.clientId = clientId;
         ws.isAlive = true;
+        ws.msgCount = 0;
+        ws.rateLimitWindowStart = Date.now();
         this.clients.set(clientId, ws);
         ws.roomId = null;
 
@@ -199,6 +205,15 @@ export class MessagingHub {
         this._broadcastToOthers(clientId, JSON.stringify({ type: 'user-joined', id: clientId, ts: Date.now() }));
 
         ws.on('message', (rawData) => {
+            const now = Date.now();
+            if (now - ws.rateLimitWindowStart > RATE_LIMIT_WINDOW_MS) {
+                ws.msgCount = 0;
+                ws.rateLimitWindowStart = now;
+            }
+            if (++ws.msgCount > RATE_LIMIT_MAX_MESSAGES) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Rate limit exceeded. Slow down.' }));
+                return;
+            }
             let parsed: unknown;
             try {
                 parsed = JSON.parse(rawData.toString());
