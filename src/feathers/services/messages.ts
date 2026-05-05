@@ -1,6 +1,7 @@
 import { MongoClient } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'node:crypto';
+import type { IMessagesCollection } from '../../types.js';
 
 // ── Peace2074 webhook emitter ─────────────────────────────────────────────────
 // Set PEACE2074_WEBHOOK_URL and (optionally) PEACE2074_WEBHOOK_SECRET in .env
@@ -40,9 +41,20 @@ const IN_MEMORY_LIMIT = 100;
  *                         decides who receives the 'created' event.
  * find(params)          — return history for the calling client.
  */
+type MessageDoc = {
+    _id: string;
+    type: string;
+    payload: unknown;
+    senderId: string;
+    recipientId: string | null;
+    roomId: string | null;
+    isBroadcast: boolean;
+    timestamp: Date;
+};
+
 export class MessagesService {
     private mongoClient: MongoClient | null = null;
-    private collection: any = null;
+    private collection: IMessagesCollection<MessageDoc> | null = null;
     public ready: Promise<void>;
 
     constructor(mongoURI?: string) {
@@ -125,7 +137,7 @@ export class MessagesService {
             timestamp: new Date(),
         };
 
-        await this.collection.insertOne({ ...message });
+        await this.collection?.insertOne({ ...message });
 
         // Fire-and-forget: notify Peace2074 Nitro API for Web Push delivery
         void emitToWebhook(message);
@@ -145,6 +157,7 @@ export class MessagesService {
             ? { $or: [{ recipientId: senderId }, { senderId }, { isBroadcast: true }] }
             : {};
 
+        if (!this.collection) return [];
         return this.collection.find(query).sort({ timestamp: 1 }).limit(limit).toArray();
     }
 

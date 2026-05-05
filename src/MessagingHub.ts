@@ -1,7 +1,8 @@
 import type { Server as HttpServer } from 'http';
 import type { IncomingMessage } from 'http';
-import type { Db, Collection } from 'mongodb';
+import type { Db } from 'mongodb';
 import type { WebSocket } from 'ws';
+import type { IMessagesCollection } from './types.js';
 
 import { WebSocketServer } from 'ws';
 import { MongoClient } from 'mongodb';
@@ -52,7 +53,7 @@ export class MessagingHub {
     private mongoURI?: string;
     private secret?: string;
     private mongoClient: MongoClient | null;
-    private messagesCollection: Collection<Message> | any; // Allow mock object
+    private messagesCollection: IMessagesCollection<Message> | null;
     private clients: Map<string, ExtendedWebSocket> = new Map();
     private wss: WebSocketServer;
     public ready: Promise<void>;
