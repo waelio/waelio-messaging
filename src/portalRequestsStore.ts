@@ -1,6 +1,7 @@
-import { MongoClient } from 'mongodb';
 import crypto from 'node:crypto';
+import type { MongoClient } from 'mongodb';
 import { createLogger } from './logger.js';
+import { createMongoClient } from './mongoClient.js';
 
 const log = createLogger('PortalRequests');
 
@@ -76,7 +77,7 @@ export class PortalRequestsStore {
     private async setup(mongoURI?: string) {
         if (mongoURI) {
             try {
-                this.mongoClient = new MongoClient(mongoURI);
+                this.mongoClient = createMongoClient(mongoURI);
                 await this.mongoClient.connect();
                 this.collection = this.mongoClient.db(DB_NAME).collection(COLLECTION_NAME);
                 await this.collection.createIndex({ requestId: 1 }, { unique: true });

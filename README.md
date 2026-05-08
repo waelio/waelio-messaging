@@ -235,6 +235,55 @@ Pass a MongoDB URI to `createFeathersApp` (or `MessagingHub`) to persist message
 await createFeathersApp(server, process.env.MONGO_URI);
 ```
 
+## GitHub webhook sync
+
+The server can synchronize `portalRequests` records from GitHub webhook events through:
+
+- `POST /api/github/webhook`
+- HMAC verification via `GITHUB_WEBHOOK_SECRET` and GitHub's `X-Hub-Signature-256` header
+
+Supported event types:
+
+- `issues`
+- `pull_request`
+- `repository_dispatch`
+
+### How a GitHub event finds a portal request
+
+For `issues` and `pull_request` events, include the request ID in either:
+
+- the issue/PR body as `Portal-Request-Id: <requestId>`
+- a label such as `portal-request:<requestId>`
+
+Optional metadata can also be supplied:
+
+- `Session-Code: <code>` in the body, or a label like `session:<code>`
+- labels like `started` or `in-progress` to promote the request status to `started`
+
+Status mapping:
+
+- `issues` → `imported` by default, or `started` when a started-style label is present
+- `pull_request` → `started`
+- `repository_dispatch` → explicit `client_payload.status`
+
+### Explicit sync via `repository_dispatch`
+
+Send a `repository_dispatch` payload with:
+
+```json
+{
+  "action": "portal-request-sync",
+  "client_payload": {
+    "requestId": "<requestId>",
+    "status": "imported",
+    "hostDisplayName": "octocat",
+    "sessionCode": "ROOM-42"
+  }
+}
+```
+
+This is handy when you want GitHub Actions to drive the sync directly instead of inferring it from labels or issue bodies.
+
 ## Release Scripts
 
 Patch / Minor / Major then publish:

@@ -58,7 +58,7 @@ describe('Messaging Server', () => {
     it('should connect to MongoDB if MONGO_URI is set', function (done) {
         this.timeout(6000);
         const mongoUri = process.env.MONGO_URI;
-        if (!mongoUri) {
+        if (process.env.RUN_MONGO_INTEGRATION !== 'true' || !mongoUri) {
             this.skip();
             return;
         }

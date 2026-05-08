@@ -1,13 +1,14 @@
 import type { Server as HttpServer } from 'http';
 import type { IncomingMessage } from 'http';
 import type { Db } from 'mongodb';
+import type { MongoClient } from 'mongodb';
 import type { WebSocket } from 'ws';
 import type { IMessagesCollection } from './types.js';
 
 import { WebSocketServer } from 'ws';
-import { MongoClient } from 'mongodb';
 import { z } from 'zod';
 import { createLogger } from './logger.js';
+import { createMongoClient } from './mongoClient.js';
 
 const log = createLogger('MessagingHub');
 
@@ -134,7 +135,7 @@ export class MessagingHub {
     private async _setupPersistence() {
         if (this.mongoURI) {
             try {
-                this.mongoClient = new MongoClient(this.mongoURI);
+                this.mongoClient = createMongoClient(this.mongoURI);
                 await this.mongoClient.connect();
                 log.info('Connected to MongoDB.');
                 const db: Db = this.mongoClient.db(DB_NAME);

@@ -1,6 +1,7 @@
-import { MongoClient } from 'mongodb';
 import crypto from 'node:crypto';
+import type { MongoClient } from 'mongodb';
 import { createLogger } from '../../logger.js';
+import { createMongoClient } from '../../mongoClient.js';
 import type { IMessagesCollection } from '../../types.js';
 
 const log = createLogger('Messages');
@@ -68,7 +69,7 @@ export class MessagesService {
     private async _setup(mongoURI?: string) {
         if (mongoURI) {
             try {
-                this.mongoClient = new MongoClient(mongoURI);
+                this.mongoClient = createMongoClient(mongoURI);
                 await this.mongoClient.connect();
                 this.collection = this.mongoClient.db(DB_NAME).collection('messages');
                 log.info('Connected to MongoDB.');
