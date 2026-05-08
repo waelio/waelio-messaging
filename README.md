@@ -284,6 +284,30 @@ Send a `repository_dispatch` payload with:
 
 This is handy when you want GitHub Actions to drive the sync directly instead of inferring it from labels or issue bodies.
 
+### Built-in GitHub Actions helper
+
+This repository now includes `.github/workflows/portal-request-sync.yml`.
+
+It can help in two ways:
+
+- **Manual sync** from the GitHub Actions UI with `requestId`, `status`, `hostDisplayName`, and `sessionCode`
+- **Automatic sync dispatch** for matching `issues` and `pull_request` activity by emitting a `repository_dispatch` event on the same repo
+
+Recommended setup modes:
+
+1. **Direct webhook mode**
+
+- Configure your GitHub webhook to send `issues` and `pull_request` directly to `/api/github/webhook`
+- Use this when you want the fewest moving parts
+
+2. **Workflow-assisted mode**
+
+- Enable the included `Portal Request Sync` workflow
+- Configure your GitHub webhook to send `repository_dispatch` to `/api/github/webhook`
+- Use this when you want GitHub Actions to normalize issue/PR activity before your server receives it
+
+To avoid duplicate updates, pick one mode per repository instead of enabling both issue/PR webhooks _and_ workflow-generated `repository_dispatch` events for the same sync flow.
+
 ## Release Scripts
 
 Patch / Minor / Major then publish:

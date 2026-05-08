@@ -252,7 +252,9 @@ export async function startServer() {
     // Start listening
     await new Promise<void>((resolve) => {
         server.listen(PORT, () => {
-            log.info({ port: PORT }, `Listening on http://localhost:${PORT}`);
+            const address = server.address();
+            const boundPort = typeof address === 'object' && address ? address.port : PORT;
+            log.info({ port: boundPort }, `Listening on http://localhost:${boundPort}`);
             resolve();
         });
     });

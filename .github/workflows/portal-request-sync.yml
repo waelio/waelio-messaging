@@ -1,0 +1,195 @@
+name: Portal Request Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      requestId:
+        description: "Portal request ID to synchronize"
+        required: true
+        type: string
+      status:
+        description: "Portal request status"
+        required: true
+        default: imported
+        type: choice
+        options: [submitted, imported, started]
+      hostDisplayName:
+        description: "Optional host display name override"
+        required: false
+        type: string
+      sessionCode:
+        description: "Optional session code override"
+        required: false
+        type: string
+  issues:
+    types: [opened, edited, labeled, unlabeled, assigned, unassigned, reopened]
+  pull_request:
+    types:
+      [
+        opened,
+        edited,
+        labeled,
+        unlabeled,
+        assigned,
+        unassigned,
+        reopened,
+        ready_for_review,
+        synchronize,
+      ]
+
+permissions:
+  contents: write
+
+jobs:
+  dispatch-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve portal sync payload
+        id: payload
+        uses: actions/github-script@v7
+        env:
+          INPUT_REQUEST_ID: ${{ github.event.inputs.requestId || '' }}
+          INPUT_STATUS: ${{ github.event.inputs.status || '' }}
+          INPUT_HOST_DISPLAY_NAME: ${{ github.event.inputs.hostDisplayName || '' }}
+          INPUT_SESSION_CODE: ${{ github.event.inputs.sessionCode || '' }}
+        with:
+          script: |
+            const requestIdLabelPattern = /^(?:portal[- ]?request(?:[- ]id)?|request[- ]id|request)\s*[:/#-]\s*([A-Za-z0-9._-]+)$/i;
+            const requestIdTextPatterns = [
+              /(?:^|\n)\s*(?:Portal-Request-Id|Portal Request ID|requestId)\s*:\s*([A-Za-z0-9._-]+)/im,
+              /\bportal[- ]?request(?:[- ]id)?\s*[:/#=]\s*([A-Za-z0-9._-]+)/i,
+            ];
+            const sessionCodeLabelPattern = /^(?:session(?:[- ]code)?)\s*[:/#-]\s*([A-Za-z0-9._-]+)$/i;
+            const sessionCodeTextPatterns = [
+              /(?:^|\n)\s*(?:Session-Code|Session Code)\s*:\s*([A-Za-z0-9._-]+)/im,
+              /\bsession(?:[- ]code)?\s*[:/#=]\s*([A-Za-z0-9._-]+)/i,
+            ];
+            const startedLabels = new Set([
+              'started',
+              'status:started',
+              'status/started',
+              'status-started',
+              'in-progress',
+              'status:in-progress',
+              'status/in-progress',
+              'doing',
+            ]);
+
+            const sanitize = (value) => typeof value === 'string' && value.trim() ? value.trim() : undefined;
+            const normalizeLabel = (value) => value.trim().toLowerCase().replace(/\s+/g, '-');
+            const getLabelNames = (subject) => Array.isArray(subject?.labels)
+              ? subject.labels.map((label) => sanitize(label?.name)).filter(Boolean)
+              : [];
+            const findValueFromLabels = (subject, pattern) => {
+              for (const labelName of getLabelNames(subject)) {
+                const match = labelName.match(pattern);
+                if (match?.[1]) {
+                  return match[1].trim();
+                }
+              }
+
+              return undefined;
+            };
+            const findValueFromTexts = (subject, patterns) => {
+              const texts = [sanitize(subject?.body), sanitize(subject?.title)].filter(Boolean);
+              for (const text of texts) {
+                for (const pattern of patterns) {
+                  const match = text.match(pattern);
+                  if (match?.[1]) {
+                    return match[1].trim();
+                  }
+                }
+              }
+
+              return undefined;
+            };
+            const getRequestId = (subject) =>
+              findValueFromLabels(subject, requestIdLabelPattern)
+              ?? findValueFromTexts(subject, requestIdTextPatterns);
+            const getSessionCode = (subject) =>
+              findValueFromLabels(subject, sessionCodeLabelPattern)
+              ?? findValueFromTexts(subject, sessionCodeTextPatterns);
+            const hasStartedLabel = (subject) =>
+              getLabelNames(subject).some((labelName) => startedLabels.has(normalizeLabel(labelName)));
+            const getHostDisplayName = (subject) => {
+              const candidates = [
+                sanitize(subject?.assignee?.login),
+                ...(Array.isArray(subject?.assignees)
+                  ? subject.assignees.map((assignee) => sanitize(assignee?.login))
+                  : []),
+                sanitize(context.payload.sender?.login),
+                sanitize(subject?.user?.login),
+                sanitize(context.actor),
+              ];
+
+              return candidates.find(Boolean);
+            };
+
+            let requestId = sanitize(process.env.INPUT_REQUEST_ID);
+            let status = sanitize(process.env.INPUT_STATUS);
+            let hostDisplayName = sanitize(process.env.INPUT_HOST_DISPLAY_NAME);
+            let sessionCode = sanitize(process.env.INPUT_SESSION_CODE);
+
+            if (context.eventName !== 'workflow_dispatch') {
+              const subject = context.payload.issue ?? context.payload.pull_request;
+
+              if (!subject) {
+                core.notice('No issue or pull request payload found; skipping portal request sync.');
+                core.setOutput('should_dispatch', 'false');
+                return;
+              }
+
+              requestId = getRequestId(subject);
+              status = context.eventName === 'pull_request' || hasStartedLabel(subject) ? 'started' : 'imported';
+              hostDisplayName = getHostDisplayName(subject);
+              sessionCode = getSessionCode(subject);
+            }
+
+            if (!requestId) {
+              core.notice('No portal request reference found in this event; skipping portal request sync.');
+              core.setOutput('should_dispatch', 'false');
+              return;
+            }
+
+            core.notice(`Prepared portal request sync for ${requestId} (${status}).`);
+            core.setOutput('should_dispatch', 'true');
+            core.setOutput('request_id', requestId);
+            core.setOutput('status', status ?? 'imported');
+            core.setOutput('host_display_name', hostDisplayName ?? '');
+            core.setOutput('session_code', sessionCode ?? '');
+
+      - name: Create repository dispatch event
+        if: steps.payload.outputs.should_dispatch == 'true'
+        uses: actions/github-script@v7
+        env:
+          REQUEST_ID: ${{ steps.payload.outputs.request_id }}
+          STATUS: ${{ steps.payload.outputs.status }}
+          HOST_DISPLAY_NAME: ${{ steps.payload.outputs.host_display_name }}
+          SESSION_CODE: ${{ steps.payload.outputs.session_code }}
+        with:
+          script: |
+            const client_payload = {
+              requestId: process.env.REQUEST_ID,
+              status: process.env.STATUS,
+            };
+
+            if (process.env.HOST_DISPLAY_NAME) {
+              client_payload.hostDisplayName = process.env.HOST_DISPLAY_NAME;
+            }
+
+            if (process.env.SESSION_CODE) {
+              client_payload.sessionCode = process.env.SESSION_CODE;
+            }
+
+            await github.rest.repos.createDispatchEvent({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              event_type: 'portal-request-sync',
+              client_payload,
+            });
+
+            core.notice(`repository_dispatch sent for ${client_payload.requestId}.`);
+
+      - name: Skip summary
+        if: steps.payload.outputs.should_dispatch != 'true'
+        run: echo "No portal request reference found, so no repository_dispatch event was created."
