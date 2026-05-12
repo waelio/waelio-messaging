@@ -1,6 +1,6 @@
 {
     "name": "@waelio/messaging",
-    "version": "2.3.4",
+    "version": "2.3.5",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/waelio/waelio-messaging.git"
