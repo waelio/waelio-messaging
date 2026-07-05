@@ -1,3 +1,2 @@
-// This is a placeholder file to satisfy the TypeScript compiler.
-// You can add client-side TypeScript code here.
-console.log("Client script loaded.");
+export { WaelioSocket, createSocket } from '@waelio/sockets';
+export type { WaelioSocketOptions, WsMessage, WsHandler } from '@waelio/sockets';

@@ -1,6 +1,6 @@
 {
     "name": "@waelio/messaging",
-    "version": "2.3.7",
+    "version": "2.4.0",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/waelio/waelio-messaging.git"
@@ -33,6 +33,7 @@
     },
     "description": "A real-time messaging application with direct & broadcast messages, user lists, and optional MongoDB persistence.",
     "dependencies": {
+        "@waelio/sockets": "^1.0.0",
         "@feathersjs/feathers": "^5.0.43",
         "@feathersjs/socketio": "^5.0.43",
         "dotenv": "^16.4.5",
