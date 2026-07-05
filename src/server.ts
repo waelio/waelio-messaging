@@ -4,7 +4,7 @@ import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createLogger } from './logger.js';
-import { createFeathersApp } from './feathers/app.js';
+import { MessagingHub } from './MessagingHub.js';
 import { extractPortalRequestSyncUpdate, verifyGitHubWebhookSignature } from './githubWebhook.js';
 import { PortalRequestsStore } from './portalRequestsStore.js';
 
@@ -246,8 +246,9 @@ export async function startServer() {
     const wsSecret = process.env.WS_SECRET || undefined;
     const allowedOrigins = getAllowedOrigins();
 
-    // Attach Feathers + Socket.io to the HTTP server (no REST transport)
-    await createFeathersApp(server, getMongoURI(), allowedOrigins, wsSecret);
+    // Attach native WebSocket MessagingHub to the HTTP server
+    const hub = new MessagingHub(server, { mongoURI: getMongoURI(), secret: wsSecret });
+    await hub.ready;
 
     // Start listening
     await new Promise<void>((resolve) => {
