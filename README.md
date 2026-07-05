@@ -7,7 +7,7 @@
 
 Real-time messaging hub powered by [FeathersJS](https://feathersjs.com) channels and Socket.io — direct messages, broadcasts, private rooms, user lists, history, and optional MongoDB persistence.
 
-Live Demo: https://waelio-messaging.onrender.com/
+Live Demo: https://waelio.com/chat/
 
 ## What is this?
 
